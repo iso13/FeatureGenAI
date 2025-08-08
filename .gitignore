@@ -1,0 +1,65 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+*.tsbuildinfo
+
+# System files
+.DS_Store
+
+# Server assets
+server/public/
+
+# Vite config variations
+vite.config.ts.*
+
+# Environment files
+.env
+*.tar.gz.env
+
+# Database files
+backup.sql
+migrations/*.sql
+
+# Drizzle ORM
+drizzle.config.ts
+drizzle/
+
+# Test coverage reports
+coverage/
+reports/
+
+# Test artifacts
+playwright-report/
+test-results/
+*.mp4
+*.webm
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Temporary folders
+.tmp/
+.cache/
+
+# Replit files (no longer needed)
+replit.nix
+replit.md
+.replit
