@@ -1,0 +1,244 @@
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+interface ScenarioComplexity {
+  name: string;
+  complexity: number;
+  factors: {
+    stepCount: number;
+    dataDependencies: number;
+    conditionalLogic: number;
+    technicalDifficulty: number;
+  };
+  explanation: string;
+}
+
+interface FeatureComplexity {
+  overallComplexity: number;
+  scenarios: ScenarioComplexity[];
+  recommendations: string[];
+}
+
+async function generateFeature(
+  title: string,
+  story: string,
+  scenarioCount: number,
+  domain: string = "generic"
+): Promise<string> {
+  try {
+    const featureTag = `@${title
+      .replace(/[^\w\s]/gi, "")
+      .split(/\s+/)
+      .map((word, i) =>
+        i === 0 ? word.toLowerCase() : word[0].toUpperCase() + word.slice(1)
+      )
+      .join("")}`;
+
+    const domainInstructions: Record<string, string> = {
+      "ar/vr":
+        "Focus on immersive experiences, 3D models, AR triggers, mobile/web compatibility, and user interactions with virtual objects.",
+      healthcare:
+        "Include scenarios relevant to HIPAA, EHR workflows, patient safety, and access controls. Use realistic healthcare data flows.",
+      finance:
+        "Focus on transactions, authentication, fraud detection, and data integrity. Use secure access patterns and compliance terms (e.g. PCI).",
+      salesforce:
+        "Center around CRM flows: updating leads, managing cases, triggering workflows, and AI (Einstein) suggestions.",
+      generic:
+        "Use user-centered behavior with a focus on feature functionality and outcomes. Avoid implementation details or internal actions.",
+    };
+
+    const domainNote = domainInstructions[domain.toLowerCase()] || domainInstructions["generic"];
+
+    const aiPrompt = `
+You are a domain-aware expert in writing Cucumber BDD feature files.
+
+Feature Title: ${title}
+Feature Story: ${story}
+Domain: ${domain}
+
+Write a Cucumber feature with:
+- EXACTLY ${scenarioCount} unique scenarios
+- One reusable Background section
+- Given/When/Then format
+- ONLY one tag: ${featureTag}
+- Domain instructions: ${domainNote}
+- Output ONLY valid Gherkin
+
+Example format:
+${featureTag}
+Feature: ${title}
+As a user, I want to interact with this feature
+So that I can achieve the expected outcome
+
+Background:
+  Given I am logged in
+
+Scenario: First example
+  When I perform an action
+  Then I see a result
+
+[CONTINUE WITH ${scenarioCount - 1} MORE SCENARIOS]
+    `.trim();
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are an expert in Cucumber BDD. Generate a valid feature file using the user's title, story, and domain context. The output must have exactly one tag, a Background, and the required number of scenarios.",
+        },
+        { role: "user", content: aiPrompt },
+      ],
+      temperature: 0.3,
+      max_tokens: 2000,
+    });
+
+    let content = response.choices[0].message.content ?? "";
+    content = content.replace(/```(gherkin)?/g, "").trim();
+    content = content.replace(/@[\w]+\s*\n(@[\w]+\s*\n)*/, `${featureTag}\n`);
+    content = content.replace(/Feature:([^\n]+)\n\n/g, "Feature:$1\n");
+
+    const actualCount = (content.match(/Scenario:/g) || []).length;
+    if (actualCount !== scenarioCount) {
+      throw new Error(
+        `Expected ${scenarioCount} scenarios, but found ${actualCount}.`
+      );
+    }
+
+    return content;
+  } catch (error: any) {
+    throw new Error(`Failed to generate feature: ${error.message}`);
+  }
+}
+
+interface FeatureAnalysis {
+  quality_score: number;
+  suggestions: string[];
+  improved_title?: string;
+}
+
+async function analyzeFeature(
+  content: string,
+  currentTitle: string
+): Promise<FeatureAnalysis> {
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are an expert in BDD and Cucumber. Analyze the feature for quality, business alignment, and clarity.",
+        },
+        {
+          role: "user",
+          content: `Analyze this feature file and return:
+1. quality_score: number (0–100)
+2. suggestions: string[]
+3. improved_title (optional)
+
+Current title: "${currentTitle}"
+
+${content}
+
+Respond in JSON format.`,
+        },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.3,
+    });
+
+    const result = JSON.parse(response.choices[0].message.content ?? "{}");
+    return {
+      quality_score: Math.min(100, Math.max(0, result.quality_score || 0)),
+      suggestions: result.suggestions || [],
+      improved_title: result.improved_title,
+    };
+  } catch (err: any) {
+    throw new Error(`Failed to analyze feature: ${err.message}`);
+  }
+}
+
+async function suggestTitle(story: string): Promise<string[]> {
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a Cucumber BDD title expert. Suggest short, business-readable feature titles (max 5 words).",
+        },
+        {
+          role: "user",
+          content: `Story: ${story}\nReturn 3 titles in JSON array.`,
+        },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.7,
+    });
+
+    const result = JSON.parse(response.choices[0].message.content ?? "{}");
+    return result.titles ?? [];
+  } catch (err: any) {
+    throw new Error(`Failed to suggest title: ${err.message}`);
+  }
+}
+
+async function analyzeFeatureComplexity(
+  content: string
+): Promise<FeatureComplexity> {
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You analyze Cucumber features for automation complexity, performance risk, and technical challenges.",
+        },
+        {
+          role: "user",
+          content: `Analyze this feature file. Return JSON with:
+- overallComplexity: 1-10
+- scenarios: [ name, complexity, factors, explanation ]
+- recommendations (array of insights for QA & DEV)
+
+${content}`,
+        },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.3,
+    });
+
+    const raw = JSON.parse(response.choices[0].message.content ?? "{}");
+    return {
+      overallComplexity: Math.min(10, Math.max(1, raw.overallComplexity || 1)),
+      scenarios: (raw.scenarios ?? []).map((s: any) => ({
+        name: s.name ?? "Unnamed Scenario",
+        complexity: Math.min(10, Math.max(1, s.complexity || 1)),
+        factors: {
+          stepCount: s.factors?.stepCount || 0,
+          dataDependencies: s.factors?.dataDependencies || 0,
+          conditionalLogic: s.factors?.conditionalLogic || 0,
+          technicalDifficulty: s.factors?.technicalDifficulty || 0,
+        },
+        explanation: s.explanation ?? "",
+      })),
+      recommendations: raw.recommendations ?? [],
+    };
+  } catch (err: any) {
+    throw new Error(`Failed to analyze complexity: ${err.message}`);
+  }
+}
+
+export {
+  generateFeature,
+  analyzeFeature,
+  suggestTitle,
+  analyzeFeatureComplexity,
+};

@@ -1,0 +1,165 @@
+/**
+ * FeatureGen AI
+ * Copyright (c) 2024–2025 David Tran
+ * Licensed under the Business Source License 1.1
+ * See LICENSE.txt for full terms
+ * Change Date: January 1, 2029 (license converts to MIT)
+ * Contact: davidtran@featuregen.ai
+ */
+
+import { Request, Response, NextFunction } from "express";
+import { storage } from "./storage";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
+import { loginSchema, registerSchema, forgotPasswordSchema, resetPasswordSchema } from "@shared/schema";
+
+// Authentication middleware
+export const requireAuth = (req: Request, res: Response, next: NextFunction) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ message: "Authentication required" });
+  }
+  next();
+};
+
+// Authentication routes
+export async function registerAuthRoutes(app: any) {
+  // Register new user
+  app.post("/api/auth/register", async (req: Request, res: Response) => {
+    try {
+      const data = registerSchema.parse(req.body);
+
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(data.email);
+      if (existingUser) {
+        return res.status(400).json({ message: "Email already registered" });
+      }
+
+      // Hash password
+      const salt = await bcrypt.genSalt(10);
+      const passwordHash = await bcrypt.hash(data.password, salt);
+
+      // Determine if role requires approval
+      const requiresApproval = ['product_manager'].includes(data.role);
+      
+      // Create user with appropriate role assignment
+      const user = await storage.createUser({
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        passwordHash,
+        isAdmin: false,
+        role: requiresApproval ? 'developer' : data.role, // Temporary role until approved
+        requestedRole: requiresApproval ? data.role : null,
+        roleApproved: !requiresApproval
+      });
+
+      // Create approval request if needed
+      if (requiresApproval) {
+        await storage.createRoleApprovalRequest({
+          userId: user.id,
+          requestedRole: data.role
+        });
+      }
+
+      // Start session
+      req.session.userId = user.id;
+      req.session.user = {
+        id: user.id,
+        email: user.email,
+        isAdmin: user.isAdmin,
+        role: user.role || 'developer'
+      };
+
+      res.json({ 
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        isAdmin: user.isAdmin,
+        role: user.role || 'developer'
+      });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // Login
+  app.post("/api/auth/login", async (req: Request, res: Response) => {
+    try {
+      const data = loginSchema.parse(req.body);
+
+      // Find user
+      const user = await storage.getUserByEmail(data.email);
+      if (!user) {
+        return res.status(400).json({ message: "Invalid email or password" });
+      }
+
+      // Verify password
+      const isValid = await bcrypt.compare(data.password, user.passwordHash);
+      if (!isValid) {
+        return res.status(400).json({ message: "Invalid email or password" });
+      }
+
+      // Start session
+      req.session.userId = user.id;
+      req.session.user = {
+        id: user.id,
+        email: user.email,
+        isAdmin: user.isAdmin,
+        role: user.role || 'developer'
+      };
+      req.session.save((err) => {
+        if (err) {
+          console.error("Session save error:", err);
+          return res.status(500).json({ message: "Failed to establish session" });
+        }
+        res.json({ 
+          id: user.id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          isAdmin: user.isAdmin,
+          role: user.role || 'developer'
+        });
+      });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // Logout
+  app.post("/api/auth/logout", (req: Request, res: Response) => {
+    if (req.session) {
+      req.session.destroy((err) => {
+        if (err) {
+          console.error("Session destruction error:", err);
+          return res.status(500).json({ message: "Failed to logout" });
+        }
+        res.json({ message: "Logged out successfully" });
+      });
+    } else {
+      res.json({ message: "No active session" });
+    }
+  });
+
+  // Get current user
+  app.get("/api/auth/me", async (req: Request, res: Response) => {
+    if (!req.session.userId) {
+      return res.json(null);
+    }
+
+    const user = await storage.getUser(req.session.userId);
+    if (!user) {
+      return res.json(null);
+    }
+
+    res.json({
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      isAdmin: user.isAdmin,
+      role: user.role || 'developer'
+    });
+  });
+}

@@ -1,0 +1,47 @@
+@fnolIntakeAndClaimProcessing @workflow @mobile @integration @dataValidation @dataSecurity
+Feature: FNOL Intake and Claim Processing
+  As a Claims Adjuster at FMNE,
+  I want to capture FNOL submissions via portal, call center, or mobile
+  So that claims are initialized with correct coverage verification, ISO fraud checks, and appropriate reserve workflows.
+  Background:
+    Given the claims adjuster is authenticated in the FNOL system
+    And the adjuster has access to the claim intake and processing features
+  Scenario: Successful FNOL submission via portal
+    And a new home insurance claim is initiated
+    When the incident date "2024-02-10" is specified
+    And the policy number "HOM-2024-XYZ789" is provided
+    And the damage description "Water damage from burst pipe" is documented
+    And the required photos and plumber's report are uploaded
+    And the claim submission is completed
+    Then the claim is registered in the system
+    And the claim number "CLM-2024-987654" is assigned
+    And the confirmation message "Your claim has been submitted successfully" appears
+    And a confirmation email is sent to the policyholder
+  Scenario: FNOL submission with missing policy number
+    And a new auto insurance claim is initiated
+    When the incident date "2024-03-05" is specified
+    And the damage description "Side swipe on highway" is documented
+    And the required photos are uploaded
+    And the claim submission is attempted
+    Then the claim submission fails
+    And the error message "Policy number is required" is displayed
+    And the claim is not registered in the system
+  Scenario: FNOL submission via call center with fraud alert
+    And a new travel insurance claim is initiated
+    When the incident date "2024-04-20" is specified
+    And the policy number "TRV-2024-DEF456" is provided
+    And the incident description "Lost luggage at airport" is documented
+    And the claim submission is completed
+    Then the claim is registered in the system
+    And the claim number "CLM-2024-123456" is assigned
+    And a fraud alert is triggered for further investigation
+    And the adjuster is notified of the fraud alert
+  Scenario: FNOL submission via mobile with incorrect date
+    And a new health insurance claim is initiated
+    When the incident date "2025-01-01" is specified
+    And the policy number "HLT-2024-GHI789" is provided
+    And the treatment description "Emergency room visit for injury" is documented
+    And the claim submission is attempted
+    Then the claim submission fails
+    And the error message "Incident date cannot be in the future" is displayed
+    And the claim is not registered in the system

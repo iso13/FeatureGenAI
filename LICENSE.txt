@@ -1,0 +1,22 @@
+Business Source License 1.1
+
+Licensor: David Tran  
+Licensed Work: FeatureGen AI
+
+Additional Use Grant:  
+You may make modifications and run the Licensed Work for non-commercial purposes, including personal, educational, research, and evaluation use.
+
+Commercial Use:  
+The Licensed Work may not be used for any commercial purpose except as expressly permitted by the Licensor. Commercial purposes include:
+- Using the Licensed Work in a for-profit product or service
+- Delivering consulting services using the Licensed Work
+- Offering the Licensed Work as a hosted or embedded component of a commercial solution
+- Internal use within a for-profit business
+
+To inquire about a commercial license, contact: davidtran@featuregen.ai
+
+Change Date:  
+This license will automatically convert to the MIT License on January 1, 2029.
+
+License Text:  
+See the full BSL 1.1 terms at: https://mariadb.com/bsl11
