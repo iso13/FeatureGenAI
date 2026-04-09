@@ -1,0 +1,97 @@
+function injectDomainTags(content: string, domains: string[]): string {
+  if (!domains || domains.length === 0) {
+    return content;
+  }
+
+  // Create the properly formatted domain tags
+  const domainTagsLine = domains.map(domain => `@${domain.charAt(0).toUpperCase() + domain.slice(1).toLowerCase()}`).join(' ');
+  
+  // Split content into lines for easier processing
+  const lines = content.split('\n');
+  
+  // Find the first non-empty line
+  let firstNonEmptyIndex = 0;
+  while (firstNonEmptyIndex < lines.length && lines[firstNonEmptyIndex].trim() === '') {
+    firstNonEmptyIndex++;
+  }
+  
+  if (firstNonEmptyIndex >= lines.length) {
+    // If all lines are empty, just return the domain tags
+    return domainTagsLine;
+  }
+  
+  const firstNonEmptyLine = lines[firstNonEmptyIndex].trim();
+  
+  // Case 1: First non-empty line starts with @ (existing tags) - replace it
+  if (firstNonEmptyLine.startsWith('@')) {
+    lines[firstNonEmptyIndex] = domainTagsLine;
+    return lines.join('\n');
+  }
+  
+  // Case 2: First non-empty line starts with "Feature:" - insert tags before it
+  if (firstNonEmptyLine.startsWith('Feature:')) {
+    lines.splice(firstNonEmptyIndex, 0, domainTagsLine, '');
+    return lines.join('\n');
+  }
+  
+  // Case 3: Default - prepend tags to the beginning
+  const result = [domainTagsLine, '', ...lines];
+  return result.join('\n');
+}
+
+// Alternative more defensive version with additional error handling
+function injectDomainTagsRobust(content: string, domains: string[]): string {
+  try {
+    if (!content || typeof content !== 'string') {
+      return domains?.length ? domains.map(d => `@${d.charAt(0).toUpperCase() + d.slice(1).toLowerCase()}`).join(' ') : '';
+    }
+    
+    if (!domains || domains.length === 0) {
+      return content;
+    }
+
+    // Create the properly formatted domain tags
+    const domainTagsLine = domains
+      .filter(domain => domain && typeof domain === 'string')
+      .map(domain => `@${domain.charAt(0).toUpperCase() + domain.slice(1).toLowerCase()}`)
+      .join(' ');
+    
+    if (!domainTagsLine) {
+      return content;
+    }
+    
+    // Split content into lines
+    const lines = content.split('\n');
+    
+    // Find the first non-empty line
+    let firstNonEmptyIndex = 0;
+    while (firstNonEmptyIndex < lines.length && lines[firstNonEmptyIndex].trim() === '') {
+      firstNonEmptyIndex++;
+    }
+    
+    if (firstNonEmptyIndex >= lines.length) {
+      return domainTagsLine;
+    }
+    
+    const firstNonEmptyLine = lines[firstNonEmptyIndex].trim();
+    
+    // Replace existing tags (including @Generic)
+    if (firstNonEmptyLine.startsWith('@')) {
+      lines[firstNonEmptyIndex] = domainTagsLine;
+      return lines.join('\n');
+    }
+    
+    // Insert before Feature: line
+    if (firstNonEmptyLine.startsWith('Feature:')) {
+      lines.splice(firstNonEmptyIndex, 0, domainTagsLine, '');
+      return lines.join('\n');
+    }
+    
+    // Prepend to beginning
+    return [domainTagsLine, '', ...lines].join('\n');
+    
+  } catch (error) {
+    console.error('Error in injectDomainTags:', error);
+    return content; // Return original content if something goes wrong
+  }
+}

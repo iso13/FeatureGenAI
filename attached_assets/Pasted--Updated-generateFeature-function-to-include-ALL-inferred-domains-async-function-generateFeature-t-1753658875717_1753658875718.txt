@@ -1,0 +1,60 @@
+// Updated generateFeature function to include ALL inferred domains
+async function generateFeature(title: string, story: string) {
+  console.log('=== FEATURE GENERATION DEBUG ===');
+  
+  // Step 1: Infer ALL domains
+  const inferredDomains = await inferDomains(title, story);
+  console.log('🧠 **Domain Inference**: Found', JSON.stringify(inferredDomains));
+  
+  // Step 2: Generate title tag
+  const titleTag = titleToCamelTag(title);
+  console.log('Generated title tag:', titleTag);
+  
+  // Step 3: Create array with title tag + ALL inferred domains
+  const allTagsArray = [
+    titleTag.replace('@', ''), // Remove @ for consistency
+    ...inferredDomains         // Add all inferred domains
+  ];
+  
+  console.log('All domains to include:', allTagsArray);
+  
+  // Step 4: Generate feature content (without any tags)
+  const featurePrompt = `Generate a Cucumber feature based on this title and story. Do NOT include any domain tags at the beginning - just start with "Feature:".
+
+Title: ${title}
+Story: ${story}
+
+Generate only the Feature: line and scenarios, no domain tags.`;
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4',
+    messages: [{ role: 'user', content: featurePrompt }],
+    temperature: 0.7
+  });
+
+  const rawContent = response.choices[0]?.message?.content || '';
+  console.log('Raw OpenAI generated content BEFORE injectDomainTags:', rawContent);
+  
+  // Step 5: Inject ALL tags (title + all inferred domains)
+  const finalContent = injectDomainTags(rawContent, allTagsArray);
+  console.log('Content AFTER injectDomainTags:', finalContent);
+  
+  return finalContent;
+}
+
+// Helper function for title to camelCase tag (if not already defined)
+function titleToCamelTag(title: string): string {
+  const words = title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '') // Remove special characters
+    .split(/\s+/)                // Split on whitespace
+    .filter(word => word.length > 0);
+  
+  if (words.length === 0) return '@unknown';
+  
+  const camelCase = words[0] + words.slice(1).map(word => 
+    word.charAt(0).toUpperCase() + word.slice(1)
+  ).join('');
+  
+  return '@' + camelCase;
+}

@@ -1,0 +1,9 @@
+This software includes the following third-party components:
+
+- Playwright (Apache License 2.0)
+  https://github.com/microsoft/playwright
+
+- OpenAI SDK (MIT License)
+  https://github.com/openai/openai-node
+
+These components retain their respective open-source licenses and are not covered by the Business Source License 1.1.

@@ -1,0 +1,221 @@
+// Updated generateFeature function in server/openai.ts
+
+export async function generateFeature(
+  title: string,
+  story: string,
+  scenarioCount: number,
+  customDomainContext?: any
+): Promise<string> {
+  try {
+    console.log('=== FEATURE GENERATION DEBUG ===');
+    
+    const titleTag = titleToCamelTag(title);
+    console.log('Generated title tag:', titleTag);
+
+    // Step 1: ALWAYS infer domains using AI
+    let inferredDomains: string[] = [];
+    try {
+      inferredDomains = await inferDomains(title, story);
+      console.log('🧠 **Domain Inference**: Found', JSON.stringify(inferredDomains));
+      
+      if (!Array.isArray(inferredDomains)) {
+        console.warn("inferDomains returned non-array:", inferredDomains);
+        inferredDomains = [];
+      }
+    } catch (error) {
+      console.warn("Failed to infer domains:", error);
+      inferredDomains = [];
+    }
+
+    let domainContext = "";
+    let domainContextDescription = "";
+    let domainTags: string[] = [];
+
+    if (customDomainContext) {
+      domainContext = `\n\nCustom Domain Context:\n${customDomainContext.context || customDomainContext.displayName}`;
+      domainContextDescription = `Custom domain: ${customDomainContext.displayName}`;
+      domainTags = [`@${customDomainContext.displayName.replace(/\s+/g, '')}`];
+    } else {
+      // ALWAYS use AI-inferred domains
+      const validDomains = inferredDomains.filter(d => d && typeof d === 'string' && d.trim().length > 0);
+      
+      if (validDomains.length > 0) {
+        domainContextDescription = `AI-inferred domains: ${validDomains.join(", ")}`;
+        
+        // Convert ALL inferred domains to proper format WITHOUT "domain" prefix
+        domainTags = validDomains.map(d => {
+          // Remove "domain" prefix if it exists
+          let cleanDomain = d;
+          if (d.toLowerCase().startsWith('domain')) {
+            cleanDomain = d.slice(6); // Remove "domain" (6 characters)
+          }
+          
+          // Keep original casing from inference
+          return `@${cleanDomain}`;
+        });
+
+        console.log('🎯 Using AI-inferred domains as tags:', domainTags);
+
+        // Use domain instructions from the first inferred domain
+        const domainInstructions: Record<string, string> = {
+          "agentic": "Focus on autonomous agent behavior, task chaining, planning, memory recall, and action execution across multi-step workflows.",
+          "ai": "Focus on AI model validation, hallucination detection, bias/fairness testing, and explainability. Include prompt handling and evaluation scenarios.",
+          "automotive": "Emphasize safety-critical systems, diagnostics, sensor data interpretation, and autonomous driving scenarios. Include CAN bus or ECU references if applicable.",
+          "biotech": "Include scenarios related to genomic analysis, lab data pipelines, machine learning in drug discovery, and bioinformatics validation steps.",
+          "crypto": "Include smart contract interactions, wallet transactions, multi-sig approval, and blockchain confirmations. Use web3-style flows and secure access patterns.",
+          "ecommerce": "Include checkout flows, cart management, product filtering, promotions, and order lifecycle. Test across desktop and mobile.",
+          "finance": "Focus on transactions, authentication, fraud detection, and data integrity. Use secure access patterns and compliance terms (e.g. PCI, AML).",
+          "gaming": "Test multiplayer interactions, leaderboard updates, in-game purchases, user sessions, and state synchronization.",
+          "gdpr": "Validate user consent, data deletion requests, access logging, and cross-border data restrictions. Include legal justification handling.",
+          "security": "Test authentication, RBAC, OWASP Top 10, privilege escalation attempts, and session timeout behavior.",
+          "healthcare": "Include scenarios relevant to HIPAA, EHR workflows, patient safety, and access controls. Use realistic healthcare data flows.",
+          "compliance": "Focus on regulatory requirements, audit trails, data retention policies, and legal compliance workflows."
+        };
+        
+        const cleanFirstDomain = validDomains[0].toLowerCase().startsWith('domain') 
+          ? validDomains[0].slice(6).toLowerCase() 
+          : validDomains[0].toLowerCase();
+          
+        if (domainInstructions[cleanFirstDomain]) {
+          domainContext = `\n\nDomain-specific guidance for ${cleanFirstDomain}:\n${domainInstructions[cleanFirstDomain]}`;
+        }
+      } else {
+        console.log('⚠️ No domains inferred, using content fallback');
+        domainContextDescription = "No domains inferred - using content approach";
+        domainTags = [`@content`];
+        domainContext = "\n\nFocus on content and functionality.";
+      }
+    }
+
+    // Step 2: Create final tags (title + all inferred domains)
+    let allTagsArray = [titleTag, ...domainTags];
+    console.log('🏷️ Final tags:', allTagsArray);
+
+    const allTags = allTagsArray.join(' ');
+    console.log('Generated allTags:', allTags);
+
+    // Step 3: Generate feature with DECLARATIVE GHERKIN prompt
+    const aiPrompt = `Generate a Cucumber BDD feature file using DECLARATIVE language and proper Background usage.
+
+Title: ${title}
+Story: ${story}
+Number of scenarios: ${scenarioCount}
+${domainContextDescription}
+${domainContext}
+
+CRITICAL GHERKIN REQUIREMENTS:
+
+1. USE DECLARATIVE LANGUAGE (describe WHAT happens, not HOW):
+   ❌ IMPERATIVE: "When I click the Submit button"
+   ✅ DECLARATIVE: "When the form submission is completed"
+   
+   ❌ IMPERATIVE: "And I enter 'john@email.com' in the Email field"  
+   ✅ DECLARATIVE: "And the email address 'john@email.com' is provided"
+
+2. PROPER BACKGROUND USAGE:
+   - Background: Use "Given" and "And" for setup conditions
+   - Scenarios: Start with "And" (continuing from Background), then "When", then "Then"
+   
+   Structure:
+   Background:
+     Given [initial authenticated state]
+     And [access to relevant system/features]
+   
+   Scenario:
+     And [additional context continuing from background]
+     When [business action/event occurs]  
+     And [additional business actions]
+     Then [expected business outcome]
+     And [additional verifiable results]
+
+3. FOCUS ON BUSINESS OUTCOMES AND VALUE:
+   ❌ UI-FOCUSED: "And I see a green checkmark icon"
+   ✅ BUSINESS-FOCUSED: "And the application status is approved"
+   
+   ❌ TECHNICAL: "And the database record is updated"
+   ✅ BUSINESS: "And the customer information is saved in the system"
+
+4. USE SPECIFIC, REALISTIC DATA:
+   - Include concrete values: "john.doe@company.com", "2024-01-15", "Policy-ABC123"
+   - Reference specific business entities and states
+   - Use realistic error messages: "Email address is required"
+   - Include specific success indicators: "Account created successfully"
+
+5. WRITE FOR BUSINESS STAKEHOLDERS:
+   - Use domain-specific terminology
+   - Focus on user value and business processes
+   - Describe system behavior from user perspective
+   - Avoid technical implementation details
+
+EXAMPLE DECLARATIVE PATTERN:
+Background:
+  Given the user is authenticated in the system
+  And the user has access to claim management features
+
+Scenario: Insurance claim is submitted with complete documentation
+  And a new auto insurance claim is initiated
+  When the incident date "2024-01-15" is specified
+  And the policy number "POL-2024-ABC123" is provided
+  And the damage description "Rear-end collision at Main Street" is documented
+  And the required photos and police report are uploaded
+  And the claim submission is completed
+  Then the claim is registered in the system
+  And the claim number "CLM-2024-456789" is assigned
+  And the confirmation message "Your claim has been submitted successfully" appears
+  And a confirmation email is sent to the policyholder
+
+Generate exactly ${scenarioCount} scenarios that:
+- Focus on realistic business workflows
+- Include both positive and negative scenarios
+- Use specific data values throughout
+- Follow proper declarative language patterns
+- Continue from the Background with "And" statements
+- Describe business outcomes, not UI interactions
+
+Format as standard Gherkin. Do NOT include any domain tags at the beginning - just start with "Feature:".`;
+
+    console.log('AI Prompt being sent:', aiPrompt);
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `You are a BDD expert specializing in declarative Gherkin scenarios for business stakeholders. 
+          Write business-focused scenarios that describe WHAT happens and WHY it matters, not HOW it's technically implemented.
+          Always use proper Background structure where scenarios continue with "And" instead of repeating "Given".
+          Focus on business outcomes, user value, and verifiable business results.
+          Use specific, realistic data that business users would recognize.`,
+        },
+        { role: "user", content: aiPrompt },
+      ],
+      temperature: 0.2, // Lower temperature for more consistent, structured output
+      max_tokens: 2000,
+    });
+
+    let content = response.choices[0].message.content ?? "";
+    content = content.replace(/```(gherkin)?/g, "").trim();
+    
+    console.log('Raw OpenAI generated content BEFORE injectDomainTags:', JSON.stringify(content));
+    console.log('About to call injectDomainTags with tagArray:', allTagsArray);
+
+    // Use the utility function to ensure tags are properly injected
+    content = injectDomainTags(content, allTagsArray);
+    console.log('Content AFTER injectDomainTags:', JSON.stringify(content));
+
+    // Clean up spacing
+    content = content.replace(/\n{3,}/g, "\n\n");
+
+    // Validate scenario count
+    const actualCount = (content.match(/Scenario:/g) || []).length;
+    if (actualCount !== scenarioCount) {
+      throw new Error(
+        `Expected ${scenarioCount} scenarios, but found ${actualCount}.`
+      );
+    }
+
+    return content;
+  } catch (error: any) {
+    throw new Error(`Failed to generate feature: ${error.message}`);
+  }
+}

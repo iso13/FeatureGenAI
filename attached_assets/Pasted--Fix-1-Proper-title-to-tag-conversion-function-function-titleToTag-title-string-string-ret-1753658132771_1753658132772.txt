@@ -1,0 +1,209 @@
+// Fix 1: Proper title-to-tag conversion function
+function titleToTag(title: string): string {
+  return '@' + title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '') // Remove special characters
+    .replace(/\s+/g, '-')        // Replace spaces with hyphens
+    .replace(/-+/g, '-')         // Replace multiple hyphens with single
+    .replace(/^-|-$/g, '');      // Remove leading/trailing hyphens
+}
+
+// OR for camelCase version:
+function titleToCamelTag(title: string): string {
+  const words = title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '') // Remove special characters
+    .split(/\s+/)                // Split on whitespace
+    .filter(word => word.length > 0);
+  
+  if (words.length === 0) return '@unknown';
+  
+  const camelCase = words[0] + words.slice(1).map(word => 
+    word.charAt(0).toUpperCase() + word.slice(1)
+  ).join('');
+  
+  return '@' + camelCase;
+}
+
+// Fix 2: Improved domain inference function
+async function inferDomains(title: string, story: string): Promise<string[]> {
+  console.log('=== DOMAIN INFERENCE DEBUG ===');
+  console.log('Input title:', title);
+  console.log('Input story:', story);
+  
+  const domainInferencePrompt = `
+Based on the following feature title and story, determine which domain tags apply.
+Return ONLY a JSON array of domain names (lowercase, no @ symbols).
+
+Available domains: gdpr, security, performance, accessibility, analytics, payments, notifications, auth, api, ui, database, mobile, testing, deployment, monitoring, compliance, internationalization, seo, caching, backup, logging, email, integration, workflow, reporting, search, messaging, social, media, content, admin, billing, subscription, userManagement, fileUpload, validation, errorHandling, configuration, documentation, audit, maintenance, scalability, optimization, migration, backupRecovery, disasterRecovery, loadBalancing, microservices, containerization, kubernetes, docker, aws, azure, gcp, serverless, lambda, graphql, restApi, websockets, realTime, streaming, batchProcessing, machineLearning, ai, dataScience, analyticsReporting, businessIntelligence, dataWarehouse, etl, dataPipeline, dataGovernance, dataPrivacy, dataRetention, dataArchiving, dataMigration, dataBackup, dataRecovery, dataSynchronization, dataValidation, dataTransformation, dataEnrichment, dataCleansing, dataQuality, dataLineage, dataCatalog, dataDiscovery, dataProfiling, dataMasking, dataEncryption, dataCompression, dataDeduplication, dataPartitioning, dataSharding, dataReplication, dataDistribution, dataConsistency, dataIntegrity, dataAvailability, dataDurability, dataReliability, dataSecurity, dataCompliance, dataAudit, dataMonitoring, dataAlerting, dataVisualization, dataDashboards, dataReporting, dataExports, dataImports, dataFeeds, dataApis, dataServices, dataModels, dataSchemas, dataStructures, dataFormats, dataStandards, dataProtocols, dataInterfaces, dataContracts, dataAgreements, dataPolicies, dataProcedures, dataGuidelines, dataBestPractices
+
+Title: "${title}"
+Story: "${story}"
+
+Examples:
+- For user authentication features: ["auth", "security"]
+- For GDPR compliance features: ["gdpr", "compliance", "dataPrivacy"]
+- For payment processing: ["payments", "security", "compliance"]
+- For data classification: ["dataGovernance", "dataPrivacy", "compliance"]
+- For email processing: ["email", "dataPrivacy", "compliance"]
+
+Return the array:`;
+
+  console.log('Domain inference prompt:', domainInferencePrompt);
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: [
+        {
+          role: 'user',
+          content: domainInferencePrompt
+        }
+      ],
+      temperature: 0.1,
+      max_tokens: 200
+    });
+
+    console.log('Raw OpenAI domain inference response:', response.choices[0]?.message?.content);
+
+    const content = response.choices[0]?.message?.content?.trim();
+    if (!content) {
+      console.log('No content in response, using fallback domains');
+      return ['content']; // Fallback
+    }
+
+    // Parse JSON response
+    try {
+      const domains = JSON.parse(content);
+      console.log('Parsed domains from OpenAI:', domains);
+      
+      if (Array.isArray(domains) && domains.length > 0) {
+        const filteredDomains = domains.filter(domain => 
+          typeof domain === 'string' && domain.length > 0
+        );
+        console.log('Final domains being returned:', filteredDomains);
+        return filteredDomains;
+      } else {
+        console.log('Invalid domains array, using fallback');
+        return ['content'];
+      }
+    } catch (parseError) {
+      console.log('JSON parse error:', parseError);
+      console.log('Attempting to extract domains from text...');
+      
+      // Try to extract array-like content from the response
+      const arrayMatch = content.match(/\[(.*?)\]/);
+      if (arrayMatch) {
+        try {
+          const domains = JSON.parse(arrayMatch[0]);
+          console.log('Extracted domains:', domains);
+          return Array.isArray(domains) ? domains : ['content'];
+        } catch (e) {
+          console.log('Secondary parse failed:', e);
+        }
+      }
+      
+      return ['content']; // Ultimate fallback
+    }
+  } catch (error) {
+    console.log('OpenAI API error:', error);
+    return ['content']; // Fallback for API errors
+  }
+}
+
+// Fix 3: Updated injectDomainTags (keeping lowerCamelCase)
+function injectDomainTags(content: string, domains: string[]): string {
+  console.log('=== INJECT DOMAIN TAGS DEBUG ===');
+  console.log('- domains received:', domains);
+  console.log('- content received:', JSON.stringify(content));
+  
+  if (!domains || domains.length === 0) {
+    console.log('No domains provided, returning original content');
+    return content;
+  }
+
+  // Create properly formatted domain tags in lowerCamelCase (no capitalization changes)
+  const domainTagsLine = domains
+    .map(domain => {
+      const cleanDomain = domain.startsWith('@') ? domain.slice(1) : domain;
+      return `@${cleanDomain}`;
+    })
+    .join(' ');
+  
+  console.log('- formatted domain tags:', domainTagsLine);
+  
+  const lines = content.split('\n');
+  
+  // Find the first non-empty line
+  let firstNonEmptyIndex = 0;
+  while (firstNonEmptyIndex < lines.length && lines[firstNonEmptyIndex].trim() === '') {
+    firstNonEmptyIndex++;
+  }
+  
+  if (firstNonEmptyIndex >= lines.length) {
+    console.log('All lines empty, returning just domain tags');
+    return domainTagsLine;
+  }
+  
+  const firstNonEmptyLine = lines[firstNonEmptyIndex].trim();
+  console.log('- first non-empty line:', JSON.stringify(firstNonEmptyLine));
+  
+  // Case 1: Replace ANY line that starts with @ (this should catch @Classifyunstructuredcontent @Generic)
+  if (firstNonEmptyLine.startsWith('@')) {
+    console.log('Found existing tags, replacing entire line');
+    console.log('- old line:', JSON.stringify(lines[firstNonEmptyIndex]));
+    lines[firstNonEmptyIndex] = domainTagsLine;
+    console.log('- new line:', JSON.stringify(lines[firstNonEmptyIndex]));
+    const result = lines.join('\n');
+    console.log('- final result:', JSON.stringify(result));
+    return result;
+  }
+  
+  // Case 2: Insert before Feature: line
+  if (firstNonEmptyLine.startsWith('Feature:')) {
+    console.log('Found Feature: line, inserting tags before it');
+    lines.splice(firstNonEmptyIndex, 0, domainTagsLine, '');
+    const result = lines.join('\n');
+    console.log('- final result:', JSON.stringify(result));
+    return result;
+  }
+  
+  // Case 3: Prepend to beginning
+  console.log('Default case: prepending tags to beginning');
+  const result = [domainTagsLine, '', ...lines].join('\n');
+  console.log('- final result:', JSON.stringify(result));
+  return result;
+}
+
+// Example of how the generateFeature function should work:
+async function generateFeature(title: string, story: string) {
+  console.log('=== FEATURE GENERATION DEBUG ===');
+  
+  // Step 1: Infer domains (should return something like ["dataGovernance", "dataPrivacy", "compliance"])
+  const inferredDomains = await inferDomains(title, story);
+  console.log('Inferred domains:', inferredDomains);
+  
+  // Step 2: Generate the feature content with OpenAI
+  // Make sure your prompt to OpenAI does NOT include any @Generic or title-based tags
+  const featurePrompt = `Generate a Cucumber feature based on this title and story. Do NOT include any domain tags at the beginning - just start with "Feature:".
+
+Title: ${title}
+Story: ${story}
+
+Generate only the Feature: line and scenarios, no domain tags.`;
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4',
+    messages: [{ role: 'user', content: featurePrompt }],
+    temperature: 0.7
+  });
+
+  const rawContent = response.choices[0]?.message?.content || '';
+  console.log('Raw OpenAI generated content BEFORE injectDomainTags:', JSON.stringify(rawContent));
+  
+  // Step 3: Inject the proper domain tags
+  const finalContent = injectDomainTags(rawContent, inferredDomains);
+  console.log('Content AFTER injectDomainTags:', JSON.stringify(finalContent));
+  
+  return finalContent;
+}
