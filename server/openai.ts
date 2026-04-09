@@ -298,8 +298,7 @@ export async function generateFeature(
       } else {
         console.log('No valid domains found, using fallback');
         domainContextDescription = 'Generic feature generation';
-        domainContext = companyKnowledgeContext; // Still include company knowledge
-        domainTags = [];
+        domainContext = companyKnowledgeContext ?? '';
       }
     }
 

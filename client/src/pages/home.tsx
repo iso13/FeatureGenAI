@@ -216,23 +216,19 @@ export default function Home() {
 
   const filteredAndSortedFeatures = useMemo(() => {
     // First filter by date to only show features from April 23rd onwards
-    let filtered = features.filter(f => new Date(f.createdAt) >= new Date('2025-04-23'));
-
-    // Then apply deleted/active filtering
+    let filtered = (features as any[]).filter((f: any) => new Date(f.createdAt) >= new Date('2025-04-23'));
     if (filterOption === 'deleted') {
-      filtered = filtered.filter(f => f.deleted);
+      filtered = filtered.filter((f: any) => f.deleted);
     } else if (filterOption === 'active') {
-      filtered = filtered.filter(f => !f.deleted);
+      filtered = filtered.filter((f: any) => !f.deleted);
     }
-
     if (searchQuery) {
-      filtered = filtered.filter(feature =>
+      filtered = filtered.filter((feature: any) =>
         feature.title.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-
-    filtered.sort((a, b) => {
-    if (sortOption === "title") {
+    filtered.sort((a: any, b: any) => {
+      if (sortOption === "title") {
         return a.title.localeCompare(b.title);
       } else if (sortOption === "domain") {
         return (a.domain || "").localeCompare(b.domain || "");
@@ -363,9 +359,9 @@ export default function Home() {
     },
   });
 
-      const archiveMutation = useMutation({
-        mutationFn: async (id: number) => {
-          const res = await apiRequest("POST", `/api/features/${id}/archive`);
+  const archiveMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("POST", `/api/features/${id}/archive`);
       if (!res.ok) {
         const error = await res.json();
         throw new Error(error.message);
@@ -474,10 +470,10 @@ export default function Home() {
         if (res.ok) {
           const generatedData = await res.json();
           // Update with regenerated content
-          editMutation.mutate({ 
-            id: editingFeature.id, 
-            ...data, 
-            generatedContent: generatedData.generatedContent 
+          editMutation.mutate({
+            id: editingFeature.id,
+            ...data,
+            generatedContent: generatedData.generatedContent
           });
         } else {
           // If regeneration fails, proceed with current content
@@ -514,9 +510,9 @@ export default function Home() {
           transition={{ delay: 0.2 }}
         >
           <div className="flex items-center justify-center relative">
-            <img 
-              src={FeatureGenLogo} 
-              alt="Feature Generator AI" 
+            <img
+              src={FeatureGenLogo}
+              alt="Feature Generator AI"
               className="h-48 w-auto"
             />
             <TooltipProvider>
@@ -712,7 +708,7 @@ export default function Home() {
               </CardHeader>
               <CardContent>
                 {(() => {
-                  const feature = features?.find(f => f.id === inlineComplexityFeatureId);
+                  const feature = (features as any[])?.find((f: any) => f.id === inlineComplexityFeatureId);
                   if (!feature || !inlineComplexityFeatureId) return null;
 
                   return (
@@ -735,7 +731,7 @@ export default function Home() {
                         </pre>
                       </div>
                       <div className="mt-6 border-t pt-6">
-                        <ComplexityAnalysis 
+                        <ComplexityAnalysis
                           featureId={inlineComplexityFeatureId}
                           autoAnalyze={false}
                           feature={feature}
@@ -751,15 +747,15 @@ export default function Home() {
         )}
 
         <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>
-                  {filterOption === 'deleted' ? 'Archived Features' : 'Generated Features'}
-                </CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {filteredAndSortedFeatures.length} feature{filteredAndSortedFeatures.length !== 1 ? 's' : ''} found
-                </p>
-              </div>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>
+                {filterOption === 'deleted' ? 'Archived Features' : 'Generated Features'}
+              </CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                {filteredAndSortedFeatures.length} feature{filteredAndSortedFeatures.length !== 1 ? 's' : ''} found
+              </p>
+            </div>
             <div className="flex items-center gap-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -813,11 +809,10 @@ export default function Home() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -20 }}
-                    className={`relative border rounded-lg p-4 cursor-pointer transition-colors ${
-                      currentFeature?.id === feature.id || inlineComplexityFeatureId === feature.id
+                    className={`relative border rounded-lg p-4 cursor-pointer transition-colors ${currentFeature?.id === feature.id || inlineComplexityFeatureId === feature.id
                         ? "border-primary bg-primary/5"
                         : "hover:border-primary/50"
-                    }`}
+                      }`}
                     onClick={() => {
                       setCurrentFeature(feature);
                       // Clear inline analysis when clicking on a feature card
@@ -950,7 +945,7 @@ export default function Home() {
               )}
             </div>
           </CardContent>
-          </Card>
+        </Card>
 
         <Dialog open={editingFeature !== null} onOpenChange={(open) => !open && setEditingFeature(null)}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -1144,7 +1139,7 @@ function updateFeatureContent(content: string, newTitle: string, story?: string)
   if (story) {
     const lines = updatedContent.split('\n');
     const featureLineIndex = lines.findIndex(line => line.trim().startsWith('Feature:'));
-    
+
     if (featureLineIndex !== -1) {
       // Insert story after feature line
       const storyLines = [
@@ -1375,7 +1370,7 @@ function ComplexityAnalysis({ featureId, autoAnalyze = false, feature, permissio
             <p className="text-sm text-muted-foreground text-center">
               Click below to analyze the complexity of this feature's scenarios
             </p>
-            <Button 
+            <Button
               onClick={() => {
                 if (analysisManager.canStart(featureId) && !isLoading) {
                   if (analysisManager.start(featureId)) {

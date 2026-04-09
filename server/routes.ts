@@ -13,16 +13,16 @@ import { storage } from "./storage";
 import { generateFeature, suggestTitle, analyzeFeatureComplexity, inferDomains } from "./openai";
 import bcrypt from "bcryptjs";
 
-import { 
-  insertFeatureSchema, 
-  insertProjectSchema, 
-  insertEpicSchema, 
-  insertCustomDomainSchema, 
+import {
+  insertFeatureSchema,
+  insertProjectSchema,
+  insertEpicSchema,
+  insertCustomDomainSchema,
   insertCompanySchema,
   insertGlossarySchema,
   insertProcessSchema,
   insertExampleSchema,
-  analytics 
+  analytics
 } from "@shared/schema";
 import { db } from "./db";
 import { requireAuth } from "./auth";
@@ -54,8 +54,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check if this is a custom domain
       let customDomainContext: any | undefined;
-      if (data.domain && data.domain.startsWith('custom-')) {
-        const customDomainId = parseIdParam(data.domain.replace('custom-', ''));
+      if ((data as any).domain && (data as any).domain.startsWith('custom-')) {
+        const customDomainId = parseIdParam((data as any).domain.replace('custom-', ''));
         const customDomain = await storage.getCustomDomain(customDomainId);
         if (customDomain) {
           customDomainContext = customDomain;
@@ -67,7 +67,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data.story,
         data.scenarioCount,
         customDomainContext,
-        domainKnowledge
+        domainKnowledge ? JSON.stringify(domainKnowledge) : undefined
       );
 
       // Automatically analyze complexity for the generated content
@@ -203,8 +203,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check if this is a custom domain
       let customDomainContext: any | undefined;
-      if (data.domain && data.domain.startsWith('custom-')) {
-        const customDomainId = parseIdParam(data.domain.replace('custom-', ''));
+      if ((data as any).domain && (data as any).domain.startsWith('custom-')) {
+  const customDomainId = parseIdParam((data as any).domain.replace('custom-', ''));
         const customDomain = await storage.getCustomDomain(customDomainId);
         if (customDomain) {
           customDomainContext = customDomain;
@@ -216,7 +216,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data.story,
         data.scenarioCount,
         customDomainContext,
-        domainKnowledge
+        domainKnowledge ? JSON.stringify(domainKnowledge) : undefined
       );
 
       // Just return the generated content without creating a new feature
@@ -808,10 +808,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let updatedCount = 0;
 
       for (const feature of features) {
-        if (feature.generatedContent && 
-            (feature.generatedContent.includes('@generic') || 
-             feature.generatedContent.includes('@Generic') ||
-             feature.generatedContent.includes('Generic'))) {
+        if (feature.generatedContent &&
+          (feature.generatedContent.includes('@generic') ||
+            feature.generatedContent.includes('@Generic') ||
+            feature.generatedContent.includes('Generic'))) {
 
           let cleanedContent = feature.generatedContent
             .replace(/@generic\s*/gi, '')
@@ -830,8 +830,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         message: `Updated ${updatedCount} features`,
         updatedCount
       });
@@ -846,7 +846,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const features = await storage.getAllFeatures(true); // Include deleted features
       console.log(`Found ${features.length} total features`);
-      
+
       const titleMap = new Map<string, any[]>();
 
       // Group features by normalized title
@@ -864,13 +864,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const duplicatesFound: string[] = [];
 
       // Process each group of features with the same title
-      for (const [title, duplicateFeatures] of titleMap) {
+      for (const [title, duplicateFeatures] of Array.from(titleMap)) {
         if (duplicateFeatures.length > 1) {
           console.log(`Found ${duplicateFeatures.length} duplicates for title: "${title}"`);
           duplicatesFound.push(title);
 
           // Sort by creation date (keep the oldest, remove newer duplicates)
-          duplicateFeatures.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+          duplicateFeatures.sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
           console.log(`Keeping oldest: ID ${duplicateFeatures[0].id}, removing ${duplicateFeatures.length - 1} duplicates`);
 
@@ -890,8 +890,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`Cleanup complete: removed ${removedCount} duplicates`);
 
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         message: `Removed ${removedCount} duplicate features`,
         removedCount,
         duplicatesFound,
@@ -921,7 +921,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           // Also clean up any other excessive empty lines (more than 2 consecutive)
           cleanedContent = cleanedContent.replace(/\n\s*\n\s*\n/g, '\n\n');
-          
+
           // Apply the same spacing fixes as the generator
           cleanedContent = cleanedContent.replace(/(Feature:.*\n(?:\s{2}.*\n)*?)(?=\s*(?:Background:|Scenario:))/g, '$1\n');
           cleanedContent = cleanedContent.replace(/(\S.*)\n(Background:)/g, '$1\n\n$2');
@@ -938,8 +938,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         message: `Fixed spacing in ${updatedCount} features`,
         updatedCount
       });

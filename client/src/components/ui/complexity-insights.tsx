@@ -49,7 +49,6 @@ function getStoryPointEstimate(complexity: number, teamContext?: TeamContextProp
                    complexity <= 6 ? 6.5 : 
                    complexity <= 8 ? 10.5 : 16;
 
-  // Adjust for team experience
   if (teamContext?.domainExpertise === "high") basePoints *= 0.8;
   else if (teamContext?.domainExpertise === "low") basePoints *= 1.3;
   
@@ -71,14 +70,12 @@ function getTimeEstimate(complexity: number, teamContext?: TeamContextProps): st
                  complexity <= 7 ? 4 : 
                  complexity <= 8 ? 8 : 12;
 
-  // Adjust for team experience and composition
   if (teamContext?.domainExpertise === "high") baseDays *= 0.7;
   else if (teamContext?.domainExpertise === "low") baseDays *= 1.4;
   
   if (teamContext?.techStackFamiliarity === "high") baseDays *= 0.8;
   else if (teamContext?.techStackFamiliarity === "low") baseDays *= 1.3;
   
-  // Convert to readable format
   const timeString = baseDays < 1 ? `${Math.round(baseDays * 8)} hours` :
                      baseDays < 5 ? `${Math.round(baseDays)} days` :
                      `${Math.round(baseDays / 5)} weeks`;
@@ -122,8 +119,8 @@ function getRiskLevel(complexity: number): { level: string; icon: any; color: st
 }
 
 interface TeamContextProps {
-  velocity?: number; // stories per sprint
-  sprintLength?: number; // days
+  velocity?: number;
+  sprintLength?: number;
   seniorDevs?: number;
   midDevs?: number;
   juniorDevs?: number;
@@ -140,7 +137,6 @@ export function ComplexityInsights({
   const riskInfo = getRiskLevel(overallComplexity);
   const RiskIcon = riskInfo.icon;
 
-  // Calculate average factors across all scenarios
   const avgFactors = scenarios.reduce(
     (acc, scenario) => ({
       stepCount: acc.stepCount + scenario.factors.stepCount,
@@ -187,133 +183,6 @@ export function ComplexityInsights({
           </div>
         </div>
       </div>
-
-      {/* Commented out Development Impact Assessment 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Development Impact Assessment
-            </span>
-            <div className="flex items-center gap-2">
-              <Badge variant={complexityInfo.variant} className={complexityInfo.color}>
-                {complexityInfo.label}
-              </Badge>
-              <span className="text-2xl font-bold">{overallComplexity}/10</span>
-            </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Story Points */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Target className="h-4 w-4 text-blue-500" />
-                <span className="text-sm font-medium">Story Points</span>
-              </div>
-              <p className="text-lg font-semibold">{getStoryPointEstimate(overallComplexity, teamContext)}</p>
-              <p className="text-xs text-muted-foreground">Agile estimation</p>
-            </div>
-
-            {/* Time Estimate */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-green-500" />
-                <span className="text-sm font-medium">Time Estimate</span>
-              </div>
-              <p className="text-lg font-semibold">{getTimeEstimate(overallComplexity, teamContext)}</p>
-              <p className="text-xs text-muted-foreground">Development time</p>
-            </div>
-
-            {/* Developer Level */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-purple-500" />
-                <span className="text-sm font-medium">Developer Level</span>
-              </div>
-              <p className="text-lg font-semibold">{getDeveloperLevel(overallComplexity, teamContext)}</p>
-              <p className="text-xs text-muted-foreground">Skill requirement</p>
-            </div>
-
-            {/* Risk Assessment */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <RiskIcon className={`h-4 w-4 ${riskInfo.color}`} />
-                <span className="text-sm font-medium">Risk Level</span>
-              </div>
-              <p className={`text-lg font-semibold ${riskInfo.color}`}>{riskInfo.level}</p>
-              <p className="text-xs text-muted-foreground">Implementation risk</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Commented out Sprint Planning Recommendations
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Lightbulb className="h-5 w-5" />
-            Sprint Planning Recommendations
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div>
-                <h4 className="font-medium mb-2 flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  Sprint Planning
-                </h4>
-                <ul className="text-sm space-y-1 text-muted-foreground">
-                  <li>• Allocate {getTimeEstimate(overallComplexity, teamContext)} for implementation</li>
-                  <li>• Reserve additional 20-30% buffer for testing</li>
-                  <li>• {overallComplexity > 7 ? "Consider breaking into smaller stories" : "Can fit in single sprint"}</li>
-                  <li>• Schedule {overallComplexity > 6 ? "mid-sprint" : "end-of-sprint"} demo</li>
-                </ul>
-              </div>
-
-              <div>
-                <h4 className="font-medium mb-2 flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  Team Assignment
-                </h4>
-                <ul className="text-sm space-y-1 text-muted-foreground">
-                  <li>• Assign to {getDeveloperLevel(overallComplexity, teamContext)}</li>
-                  <li>• {overallComplexity > 6 ? "Consider pair programming" : "Individual development OK"}</li>
-                  <li>• {overallComplexity > 8 ? "Requires architecture review first" : "Standard code review process"}</li>
-                </ul>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <h4 className="font-medium mb-2 flex items-center gap-2">
-                  <Shield className="h-4 w-4" />
-                  Quality Assurance
-                </h4>
-                <ul className="text-sm space-y-1 text-muted-foreground">
-                  <li>• {getTestingStrategy(overallComplexity)}</li>
-                  <li>• {overallComplexity > 6 ? "QA review before merge" : "Standard testing process"}</li>
-                  <li>• {overallComplexity > 7 ? "Performance testing required" : "Standard performance checks"}</li>
-                </ul>
-              </div>
-
-              <div>
-                <h4 className="font-medium mb-2 flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4" />
-                  Risk Mitigation
-                </h4>
-                <ul className="text-sm space-y-1 text-muted-foreground">
-                  <li>• {overallComplexity > 7 ? "Start early in sprint" : "Can start mid-sprint"}</li>
-                  <li>• {overallComplexity > 6 ? "Daily check-ins recommended" : "Standard standup updates"}</li>
-                  <li>• {overallComplexity > 8 ? "Create fallback plan" : "Standard delivery approach"}</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Complexity Factors Breakdown */}
       <Card>

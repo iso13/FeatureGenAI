@@ -23,7 +23,7 @@ interface Template {
   id: string;
   title: string;
   story: string;
-  domain: Domain;
+  domain: Domain | string;
   scenarioCount: number;
   description: string;
   icon: React.ReactNode;
@@ -252,7 +252,7 @@ const templates: Template[] = [
     tags: ["Insurance", "Claims", "Processing"],
     complexity: "Advanced"
   },
-    {
+  {
     id: "user-authentication",
     title: "User Authentication System",
     story: "As a user\nI want to securely log into my account\nSo that I can access personalized features",
@@ -294,8 +294,8 @@ export default function Templates() {
   };
 
   const allDomains = Array.from(new Set(templates.map(t => t.domain))).sort();
-  const filteredTemplates = selectedFilter === "all" 
-    ? templates 
+  const filteredTemplates = selectedFilter === "all"
+    ? templates
     : templates.filter(t => t.domain === selectedFilter);
 
   return (
@@ -308,7 +308,7 @@ export default function Templates() {
         <div className="text-center">
           <h1 className="text-3xl font-bold mb-4">Feature Templates</h1>
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            Start with pre-built templates for common testing scenarios. Each template includes 
+            Start with pre-built templates for common testing scenarios. Each template includes
             comprehensive user stories and scenario structures you can customize for your needs.
           </p>
         </div>
@@ -332,9 +332,9 @@ export default function Templates() {
                   onClick={() => setSelectedFilter(domain)}
                   className="capitalize"
                 >
-                  {domain === "ecommerce" ? "E-commerce" : 
-                   domain === "ai" ? "AI" : 
-                   domain.charAt(0).toUpperCase() + domain.slice(1)}
+                  {domain === "ecommerce" ? "E-commerce" :
+                    domain === "ai" ? "AI" :
+                      domain.charAt(0).toUpperCase() + domain.slice(1)}
                 </Button>
               ))}
             </div>
@@ -359,8 +359,8 @@ export default function Templates() {
                     <div className="flex-1">
                       <CardTitle className="text-lg">{template.title}</CardTitle>
                       <div className="flex items-center gap-2 mt-2">
-                        <Badge 
-                          variant="secondary" 
+                        <Badge
+                          variant="secondary"
                           className={complexityColors[template.complexity]}
                         >
                           {template.complexity}

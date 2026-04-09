@@ -24,9 +24,9 @@ export function FeatureList() {
   const [selectedFeature, setSelectedFeature] = useState<Feature | null>(null);
   // Assuming searchTerm, complexityFilter, and domainFilter are defined elsewhere or passed as props.
   // For this example, we'll use placeholder values or assume they are managed by a parent component or context.
-  const searchTerm = ""; // Placeholder
-  const complexityFilter = null; // Placeholder
-  const domainFilter = null; // Placeholder
+  const searchTerm: string = "";
+  const complexityFilter: string | null = null;
+  const domainFilter: string | null = null;
 
   const { data: features = [], isLoading } = useQuery<Feature[]>({
     queryKey: ["/api/features"],
@@ -39,19 +39,21 @@ export function FeatureList() {
 
   console.log("Visible features:", visibleFeatures);
 
-  const filteredFeatures = visibleFeatures?.filter(feature => {
+  const activeDomainFilter: string = domainFilter ?? '';
+
+  const filteredFeatures = (visibleFeatures as any[])?.filter((feature: any) => {
     if (!feature) return false;
 
-    const matchesSearch = !searchTerm || 
+    const matchesSearch = !searchTerm ||
       feature.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       feature.generatedContent?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesComplexity = !complexityFilter || 
+    const matchesComplexity = !complexityFilter ||
       feature.analysisJson?.complexity === complexityFilter;
 
-    const matchesDomain = !domainFilter || 
-      feature.analysisJson?.domains?.some((domain: string) => 
-        domain.toLowerCase().includes(domainFilter.toLowerCase())
+    const matchesDomain = !domainFilter ||
+      feature.analysisJson?.domains?.some((domain: string) =>
+        domain.toLowerCase().includes((domainFilter as string).toLowerCase())
       );
 
     return matchesSearch && matchesComplexity && matchesDomain;
@@ -59,7 +61,7 @@ export function FeatureList() {
 
   // Remove duplicates by title (keep the oldest one)
   const deduplicatedFeatures = filteredFeatures.reduce((acc: any[], current: any) => {
-    const existingIndex = acc.findIndex(item => 
+    const existingIndex = acc.findIndex(item =>
       item.title.toLowerCase().trim() === current.title.toLowerCase().trim()
     );
 

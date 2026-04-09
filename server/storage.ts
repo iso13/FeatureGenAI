@@ -38,7 +38,7 @@ import {
   type InsertProcess,
   type InsertExample,
 } from "@shared/schema";
-import { eq, ilike, desc, or } from "drizzle-orm";
+import { eq, ilike, desc, or, and } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
@@ -88,42 +88,42 @@ export interface IStorage {
   trackEvent(event: InsertAnalytics): Promise<Analytics>;
   getAnalytics(): Promise<Analytics[]>;
 
-   // Custom Domain management
-   createCustomDomain(data: any): Promise<any>;
-   getAllCustomDomains(userId?: number): Promise<any[]>;
-   getCustomDomain(id: number): Promise<any | null>;
-   updateCustomDomain(id: number, data: any): Promise<any>;
-   deleteCustomDomain(id: number): Promise<void>;
-   getUserCustomDomains(userId: number): Promise<any[]>;
+  // Custom Domain management
+  createCustomDomain(data: any): Promise<any>;
+  getAllCustomDomains(userId?: number): Promise<any[]>;
+  getCustomDomain(id: number): Promise<any | null>;
+  updateCustomDomain(id: number, data: any): Promise<any>;
+  deleteCustomDomain(id: number): Promise<void>;
+  getUserCustomDomains(userId: number): Promise<any[]>;
 
-   // Company management
-   createCompany(company: InsertCompany): Promise<Company>;
-   getCompany(id: number): Promise<Company | undefined>;
-   getCompanyBySlug(slug: string): Promise<Company | undefined>;
-   getAllCompanies(): Promise<Company[]>;
+  // Company management
+  createCompany(company: InsertCompany): Promise<Company>;
+  getCompany(id: number): Promise<Company | undefined>;
+  getCompanyBySlug(slug: string): Promise<Company | undefined>;
+  getAllCompanies(): Promise<Company[]>;
 
-   // Domain Knowledge management
-   createGlossaryTerm(companyId: number, data: InsertGlossary & { createdBy: number }): Promise<DomainGlossary>;
-   getGlossaryTerms(companyId: number, search?: string, limit?: number): Promise<DomainGlossary[]>;
-   updateGlossaryTerm(id: number, data: Partial<InsertGlossary>): Promise<DomainGlossary>;
-   deleteGlossaryTerm(id: number): Promise<void>;
+  // Domain Knowledge management
+  createGlossaryTerm(companyId: number, data: InsertGlossary & { createdBy: number }): Promise<DomainGlossary>;
+  getGlossaryTerms(companyId: number, search?: string, limit?: number): Promise<DomainGlossary[]>;
+  updateGlossaryTerm(id: number, data: Partial<InsertGlossary>): Promise<DomainGlossary>;
+  deleteGlossaryTerm(id: number): Promise<void>;
 
-   createProcess(companyId: number, data: InsertProcess & { createdBy: number }): Promise<DomainProcess>;
-   getProcesses(companyId: number, search?: string, category?: string, limit?: number): Promise<DomainProcess[]>;
-   updateProcess(id: number, data: Partial<InsertProcess>): Promise<DomainProcess>;
-   deleteProcess(id: number): Promise<void>;
+  createProcess(companyId: number, data: InsertProcess & { createdBy: number }): Promise<DomainProcess>;
+  getProcesses(companyId: number, search?: string, category?: string, limit?: number): Promise<DomainProcess[]>;
+  updateProcess(id: number, data: Partial<InsertProcess>): Promise<DomainProcess>;
+  deleteProcess(id: number): Promise<void>;
 
-   createExample(companyId: number, data: InsertExample & { createdBy: number }): Promise<DomainExample>;
-   getExamples(companyId: number, search?: string, tags?: string, limit?: number): Promise<DomainExample[]>;
-   updateExample(id: number, data: Partial<InsertExample>): Promise<DomainExample>;
-   deleteExample(id: number): Promise<void>;
+  createExample(companyId: number, data: InsertExample & { createdBy: number }): Promise<DomainExample>;
+  getExamples(companyId: number, search?: string, tags?: string, limit?: number): Promise<DomainExample[]>;
+  updateExample(id: number, data: Partial<InsertExample>): Promise<DomainExample>;
+  deleteExample(id: number): Promise<void>;
 
-   // Retrieval for generation
-   getRelevantDomainKnowledge(companyId: number, searchText: string, limit?: number): Promise<{
-     glossary: DomainGlossary[];
-     processes: DomainProcess[];
-     examples: DomainExample[];
-   }>;
+  // Retrieval for generation
+  getRelevantDomainKnowledge(companyId: number, searchText: string, limit?: number): Promise<{
+    glossary: DomainGlossary[];
+    processes: DomainProcess[];
+    examples: DomainExample[];
+  }>;
 }
 
 type CreateFeatureInput = InsertFeature & {
@@ -323,7 +323,7 @@ export class PostgresStorage implements IStorage {
   async deleteProject(id: number): Promise<void> {
     // First, unassign all epics from this project (set their projectId to null)
     await db.update(epics).set({ projectId: null }).where(eq(epics.projectId, id));
-    
+
     // Then delete the project
     await db.delete(projects).where(eq(projects.id, id));
   }
@@ -355,7 +355,7 @@ export class PostgresStorage implements IStorage {
   async deleteEpic(id: number): Promise<void> {
     // First, unassign all features from this epic (set their epicId to null)
     await db.update(features).set({ epicId: null }).where(eq(features.epicId, id));
-    
+
     // Then delete the epic
     await db.delete(epics).where(eq(epics.id, id));
   }
@@ -449,7 +449,7 @@ export class PostgresStorage implements IStorage {
     // Parse complianceContext back to array for response
     if (domain.complianceContext) {
       try {
-        domain.complianceContext = JSON.parse(domain.complianceContext);
+        domain.complianceContext = JSON.parse(domain.complianceContext as string);
       } catch (e) {
         // If parsing fails, keep as string
       }
@@ -462,23 +462,17 @@ export class PostgresStorage implements IStorage {
     try {
       // Check if the table exists and has data
       const domains = await db.select().from(customDomains).limit(1);
-      
-      let query = db.select().from(customDomains);
 
-      if (userId) {
-        // Show user's own domains plus public domains
-        query = query.where(
-          or(
-            eq(customDomains.createdBy, userId),
-            eq(customDomains.isPublic, true)
-          )
-        );
-      } else {
-        // Show only public domains if no user
-        query = query.where(eq(customDomains.isPublic, true));
-      }
-
-      const result = await query.orderBy(desc(customDomains.createdAt));
+      const result = await db.select().from(customDomains)
+        .where(
+          userId
+            ? or(
+              eq(customDomains.createdBy, userId),
+              eq(customDomains.isPublic, true)
+            )
+            : eq(customDomains.isPublic, true)
+        )
+        .orderBy(desc(customDomains.createdAt));
 
       return result.map(domain => ({
         ...domain,
@@ -518,7 +512,7 @@ export class PostgresStorage implements IStorage {
     // Parse complianceContext back to array for response
     if (updated.complianceContext) {
       try {
-        updated.complianceContext = JSON.parse(updated.complianceContext);
+        updated.complianceContext = JSON.parse(updated.complianceContext as string);
       } catch (e) {
         // If parsing fails, keep as string
       }
@@ -569,18 +563,18 @@ export class PostgresStorage implements IStorage {
   }
 
   async getGlossaryTerms(companyId: number, search?: string, limit = 50): Promise<DomainGlossary[]> {
-    let query = db.select().from(domainGlossary)
-      .where(eq(domainGlossary.companyId, companyId))
-      .orderBy(desc(domainGlossary.weight), desc(domainGlossary.createdAt));
-    
-    if (search) {
-      query = query.where(or(
-        ilike(domainGlossary.term, `%${search}%`),
-        ilike(domainGlossary.definition, `%${search}%`)
-      ));
-    }
-    
-    return await query.limit(limit);
+    return await db.select().from(domainGlossary)
+      .where(
+        and(
+          eq(domainGlossary.companyId, companyId),
+          search ? or(
+            ilike(domainGlossary.term, `%${search}%`),
+            ilike(domainGlossary.definition, `%${search}%`)
+          ) : undefined
+        )
+      )
+      .orderBy(desc(domainGlossary.weight), desc(domainGlossary.createdAt))
+      .limit(limit);
   }
 
   async updateGlossaryTerm(id: number, data: Partial<InsertGlossary>): Promise<DomainGlossary> {
@@ -605,22 +599,19 @@ export class PostgresStorage implements IStorage {
   }
 
   async getProcesses(companyId: number, search?: string, category?: string, limit = 50): Promise<DomainProcess[]> {
-    let query = db.select().from(domainProcesses)
-      .where(eq(domainProcesses.companyId, companyId))
-      .orderBy(desc(domainProcesses.weight), desc(domainProcesses.createdAt));
-    
-    if (search) {
-      query = query.where(or(
-        ilike(domainProcesses.title, `%${search}%`),
-        ilike(domainProcesses.content, `%${search}%`)
-      ));
-    }
-
-    if (category) {
-      query = query.where(eq(domainProcesses.category, category));
-    }
-    
-    return await query.limit(limit);
+    return await db.select().from(domainProcesses)
+      .where(
+        and(
+          eq(domainProcesses.companyId, companyId),
+          search ? or(
+            ilike(domainProcesses.title, `%${search}%`),
+            ilike(domainProcesses.content, `%${search}%`)
+          ) : undefined,
+          category ? eq(domainProcesses.category, category) : undefined
+        )
+      )
+      .orderBy(desc(domainProcesses.weight), desc(domainProcesses.createdAt))
+      .limit(limit);
   }
 
   async updateProcess(id: number, data: Partial<InsertProcess>): Promise<DomainProcess> {
@@ -645,22 +636,19 @@ export class PostgresStorage implements IStorage {
   }
 
   async getExamples(companyId: number, search?: string, tags?: string, limit = 50): Promise<DomainExample[]> {
-    let query = db.select().from(domainExamples)
-      .where(eq(domainExamples.companyId, companyId))
-      .orderBy(desc(domainExamples.weight), desc(domainExamples.createdAt));
-    
-    if (search) {
-      query = query.where(or(
-        ilike(domainExamples.title, `%${search}%`),
-        ilike(domainExamples.featureContent, `%${search}%`)
-      ));
-    }
-
-    if (tags) {
-      query = query.where(ilike(domainExamples.tags, `%${tags}%`));
-    }
-    
-    return await query.limit(limit);
+    return await db.select().from(domainExamples)
+      .where(
+        and(
+          eq(domainExamples.companyId, companyId),
+          search ? or(
+            ilike(domainExamples.title, `%${search}%`),
+            ilike(domainExamples.featureContent, `%${search}%`)
+          ) : undefined,
+          tags ? ilike(domainExamples.tags, `%${tags}%`) : undefined
+        )
+      )
+      .orderBy(desc(domainExamples.weight), desc(domainExamples.createdAt))
+      .limit(limit);
   }
 
   async updateExample(id: number, data: Partial<InsertExample>): Promise<DomainExample> {
@@ -682,21 +670,21 @@ export class PostgresStorage implements IStorage {
     examples: DomainExample[];
   }> {
     const searchTerm = `%${searchText.toLowerCase()}%`;
-    
+
     const glossary = await db.select().from(domainGlossary)
       .where(
         eq(domainGlossary.companyId, companyId)
       )
       .orderBy(desc(domainGlossary.weight), desc(domainGlossary.createdAt))
       .limit(limit);
-      
+
     const processes = await db.select().from(domainProcesses)
       .where(
         eq(domainProcesses.companyId, companyId)
       )
       .orderBy(desc(domainProcesses.weight), desc(domainProcesses.createdAt))
       .limit(limit);
-      
+
     const examples = await db.select().from(domainExamples)
       .where(
         eq(domainExamples.companyId, companyId)

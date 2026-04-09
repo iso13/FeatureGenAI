@@ -81,13 +81,13 @@ export default function CustomDomains() {
   const [editingDomain, setEditingDomain] = useState<CustomDomain | null>(null);
 
   // Data queries
-  const { data: allDomains = [] } = useQuery({
-    queryKey: ["/api/custom-domains"],
+  const { data: allDomains = [] } = useQuery<CustomDomain[]>({
+    queryKey: ["/api/custom-domains/all"],
     enabled: !!user,
   });
 
-  const { data: myDomains = [] } = useQuery({
-    queryKey: ["/api/custom-domains/my"],
+  const { data: myDomains = [] } = useQuery<CustomDomain[]>({
+    queryKey: ["/api/custom-domains"],
     enabled: !!user,
   });
 
@@ -228,8 +228,8 @@ export default function CustomDomains() {
       description: domain.description || "",
       primaryActors: domain.primaryActors || "",
       businessUseCases: domain.businessUseCases || "",
-      complianceContext: domain.complianceContext || ["None"],
-      stepStyle: domain.stepStyle || "Declarative",
+      complianceContext: (domain.complianceContext as string[]) || ["None"],
+      stepStyle: (domain.stepStyle as "Declarative" | "Imperative" | "Hybrid") || "Declarative",
       auditabilityRequired: domain.auditabilityRequired || false,
       instructions: domain.instructions,
       isPublic: domain.isPublic,
@@ -330,11 +330,11 @@ export default function CustomDomains() {
                 <h4 className="font-semibold mb-2">Healthcare EMR System</h4>
                 <div className="grid md:grid-cols-2 gap-3 text-sm">
                   <div>
-                    <strong>Primary Actors:</strong> Patient, Physician, Nurse, Administrator<br/>
+                    <strong>Primary Actors:</strong> Patient, Physician, Nurse, Administrator<br />
                     <strong>Use Cases:</strong> Schedule Appointment, Record Vitals, Prescribe Medication, Generate Report
                   </div>
                   <div>
-                    <strong>Compliance:</strong> HIPAA<br/>
+                    <strong>Compliance:</strong> HIPAA<br />
                     <strong>Instructions:</strong> "Focus on patient privacy, PHI handling, consent workflows, and audit trails. Include error scenarios for invalid patient IDs and access violations."
                   </div>
                 </div>
@@ -344,11 +344,11 @@ export default function CustomDomains() {
                 <h4 className="font-semibold mb-2">Financial Trading Platform</h4>
                 <div className="grid md:grid-cols-2 gap-3 text-sm">
                   <div>
-                    <strong>Primary Actors:</strong> Trader, Risk Manager, Compliance Officer, Client<br/>
+                    <strong>Primary Actors:</strong> Trader, Risk Manager, Compliance Officer, Client<br />
                     <strong>Use Cases:</strong> Execute Trade, Monitor Positions, Generate P&L, Verify Compliance
                   </div>
                   <div>
-                    <strong>Compliance:</strong> SOX, SEC<br/>
+                    <strong>Compliance:</strong> SOX, SEC<br />
                     <strong>Instructions:</strong> "Emphasize real-time data validation, trade settlement processes, risk limits, and regulatory reporting. Include market data feed scenarios and latency considerations."
                   </div>
                 </div>
@@ -358,11 +358,11 @@ export default function CustomDomains() {
                 <h4 className="font-semibold mb-2">E-Learning Platform</h4>
                 <div className="grid md:grid-cols-2 gap-3 text-sm">
                   <div>
-                    <strong>Primary Actors:</strong> Student, Instructor, Administrator, Parent<br/>
+                    <strong>Primary Actors:</strong> Student, Instructor, Administrator, Parent<br />
                     <strong>Use Cases:</strong> Enroll Course, Submit Assignment, Grade Assessment, Track Progress
                   </div>
                   <div>
-                    <strong>Compliance:</strong> GDPR, FERPA<br/>
+                    <strong>Compliance:</strong> GDPR, FERPA<br />
                     <strong>Instructions:</strong> "Focus on learning outcomes, progress tracking, content delivery, and student privacy. Include scenarios for offline access, mobile devices, and accessibility requirements."
                   </div>
                 </div>
@@ -402,7 +402,7 @@ export default function CustomDomains() {
                 Create a new custom domain to improve feature generation accuracy for your specific business context.
               </DialogDescription>
             </DialogHeader>
-            <CreateCustomDomainForm 
+            <CreateCustomDomainForm
               onSuccess={() => setNewDomainDialog(false)}
               onCancel={() => setNewDomainDialog(false)}
             />
@@ -448,7 +448,7 @@ export default function CustomDomains() {
                               <Edit className="w-4 h-4 mr-2" />
                               Edit
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
+                            <DropdownMenuItem
                               onClick={() => handleDeleteDomain(domain.id)}
                               className="text-red-600"
                             >
@@ -541,71 +541,116 @@ export default function CustomDomains() {
       {/* Edit Domain Dialog */}
       <Dialog open={!!editingDomain} onOpenChange={() => setEditingDomain(null)}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Edit Custom Domain</DialogTitle>
-              <DialogDescription>
-                Update your custom domain settings and instructions.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="max-w-4xl mx-auto">
-              <Form {...editDomainForm}>
-                <form onSubmit={editDomainForm.handleSubmit(onSubmitEditDomain)} className="space-y-8">
-                  {/* Basic Information Section */}
-                  <div className="space-y-6">
-                    <div className="flex items-center gap-2 pb-2 border-b">
-                      <Info className="w-5 h-5 text-blue-600" />
-                      <h3 className="text-lg font-semibold">Basic Information</h3>
-                    </div>
+          <DialogHeader>
+            <DialogTitle>Edit Custom Domain</DialogTitle>
+            <DialogDescription>
+              Update your custom domain settings and instructions.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-w-4xl mx-auto">
+            <Form {...editDomainForm}>
+              <form onSubmit={editDomainForm.handleSubmit(onSubmitEditDomain)} className="space-y-8">
+                {/* Basic Information Section */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-2 pb-2 border-b">
+                    <Info className="w-5 h-5 text-blue-600" />
+                    <h3 className="text-lg font-semibold">Basic Information</h3>
+                  </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <FormField
-                        control={editDomainForm.control}
-                        name="name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-sm font-medium">Domain Key *</FormLabel>
-                            <FormControl>
-                              <Input 
-                                placeholder="healthcare-emr" 
-                                className="focus:ring-2 focus:ring-blue-500"
-                                {...field} 
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={editDomainForm.control}
-                        name="displayName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-sm font-medium">Display Name *</FormLabel>
-                            <FormControl>
-                              <Input 
-                                placeholder="Healthcare EMR System" 
-                                className="focus:ring-2 focus:ring-blue-500"
-                                {...field} 
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <FormField
                       control={editDomainForm.control}
-                      name="description"
+                      name="name"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-sm font-medium">Description *</FormLabel>
+                          <FormLabel className="text-sm font-medium">Domain Key *</FormLabel>
                           <FormControl>
-                            <Textarea 
-                              placeholder="Describe what this domain covers and its key characteristics..." 
+                            <Input
+                              placeholder="healthcare-emr"
+                              className="focus:ring-2 focus:ring-blue-500"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={editDomainForm.control}
+                      name="displayName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-medium">Display Name *</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="Healthcare EMR System"
+                              className="focus:ring-2 focus:ring-blue-500"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={editDomainForm.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium">Description *</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Describe what this domain covers and its key characteristics..."
+                            rows={3}
+                            className="focus:ring-2 focus:ring-blue-500"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {/* Domain Context Section */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-2 pb-2 border-b">
+                    <Users className="w-5 h-5 text-green-600" />
+                    <h3 className="text-lg font-semibold">Domain Context</h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <FormField
+                      control={editDomainForm.control}
+                      name="primaryActors"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-medium">Primary Actors *</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="e.g., Patient, Doctor, Nurse"
+                              className="focus:ring-2 focus:ring-blue-500"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={editDomainForm.control}
+                      name="businessUseCases"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-medium">Key Use Cases *</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="e.g., Schedule Appointment, Record Vitals, Prescribe Medication"
                               rows={3}
                               className="focus:ring-2 focus:ring-blue-500"
-                              {...field} 
+                              {...field}
                             />
                           </FormControl>
                           <FormMessage />
@@ -613,121 +658,76 @@ export default function CustomDomains() {
                       )}
                     />
                   </div>
+                </div>
 
-                  {/* Domain Context Section */}
-                  <div className="space-y-6">
-                    <div className="flex items-center gap-2 pb-2 border-b">
-                      <Users className="w-5 h-5 text-green-600" />
-                      <h3 className="text-lg font-semibold">Domain Context</h3>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <FormField
-                        control={editDomainForm.control}
-                        name="primaryActors"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-sm font-medium">Primary Actors *</FormLabel>
-                            <FormControl>
-                              <Input 
-                                placeholder="e.g., Patient, Doctor, Nurse" 
-                                className="focus:ring-2 focus:ring-blue-500"
-                                {...field} 
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={editDomainForm.control}
-                        name="businessUseCases"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-sm font-medium">Key Use Cases *</FormLabel>
-                            <FormControl>
-                              <Textarea 
-                                placeholder="e.g., Schedule Appointment, Record Vitals, Prescribe Medication" 
-                                rows={3}
-                                className="focus:ring-2 focus:ring-blue-500"
-                                {...field} 
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
+                {/* AI Instructions Section */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-2 pb-2 border-b">
+                    <Target className="w-5 h-5 text-purple-600" />
+                    <h3 className="text-lg font-semibold">AI Instructions</h3>
                   </div>
 
-                  {/* AI Instructions Section */}
-                  <div className="space-y-6">
-                    <div className="flex items-center gap-2 pb-2 border-b">
-                      <Target className="w-5 h-5 text-purple-600" />
-                      <h3 className="text-lg font-semibold">AI Instructions</h3>
-                    </div>
+                  <FormField
+                    control={editDomainForm.control}
+                    name="instructions"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium">AI Generation Instructions *</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Provide detailed instructions for how AI should generate feature files in this domain..."
+                            rows={8}
+                            className="focus:ring-2 focus:ring-blue-500"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
-                    <FormField
-                      control={editDomainForm.control}
-                      name="instructions"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-sm font-medium">AI Generation Instructions *</FormLabel>
-                          <FormControl>
-                            <Textarea 
-                              placeholder="Provide detailed instructions for how AI should generate feature files in this domain..." 
-                              rows={8}
-                              className="focus:ring-2 focus:ring-blue-500"
-                              {...field} 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                {/* Advanced Settings */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-2 pb-2 border-b">
+                    <Settings className="w-5 h-5 text-gray-600" />
+                    <h3 className="text-lg font-semibold">Advanced Settings</h3>
                   </div>
 
-                  {/* Advanced Settings */}
-                  <div className="space-y-6">
-                    <div className="flex items-center gap-2 pb-2 border-b">
-                      <Settings className="w-5 h-5 text-gray-600" />
-                      <h3 className="text-lg font-semibold">Advanced Settings</h3>
-                    </div>
-
-                    <FormField
-                      control={editDomainForm.control}
-                      name="isPublic"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                          <div className="space-y-0.5">
-                            <FormLabel className="text-sm font-medium">Public Domain</FormLabel>
-                            <div className="text-xs text-gray-600">
-                              Allow other users to use this domain for feature generation
-                            </div>
+                  <FormField
+                    control={editDomainForm.control}
+                    name="isPublic"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-sm font-medium">Public Domain</FormLabel>
+                          <div className="text-xs text-gray-600">
+                            Allow other users to use this domain for feature generation
                           </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
-                  <div className="flex gap-3 pt-4 border-t">
-                    <Button type="submit" disabled={updateDomainMutation.isPending} className="flex-1">
-                      {updateDomainMutation.isPending ? "Updating..." : "Update Domain"}
-                    </Button>
-                    <Button type="button" variant="outline" onClick={() => setEditingDomain(null)} className="px-8">
-                      Cancel
-                    </Button>
-                  </div>
-                </form>
-              </Form>
-            </div>
-          </DialogContent>
+                <div className="flex gap-3 pt-4 border-t">
+                  <Button type="submit" disabled={updateDomainMutation.isPending} className="flex-1">
+                    {updateDomainMutation.isPending ? "Updating..." : "Update Domain"}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => setEditingDomain(null)} className="px-8">
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </div>
+        </DialogContent>
       </Dialog>
     </div>
   );
