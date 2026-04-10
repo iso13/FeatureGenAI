@@ -13,7 +13,6 @@
     "skipLibCheck": true,
     "allowImportingTsExtensions": true,
     "moduleResolution": "bundler",
-    "baseUrl": ".",
     "typeRoots": ["./shared/types", "./node_modules/@types"],
     "paths": {
       "@/*": ["./client/src/*"],
