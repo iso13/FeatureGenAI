@@ -171,7 +171,7 @@ export default function Home() {
         });
         // Clear template data after using it
         localStorage.removeItem('templateData');
-        
+
         toast({
           title: "Template Loaded",
           description: "Form has been pre-filled with template data. You can modify it before generating.",
@@ -214,7 +214,7 @@ export default function Home() {
   const filteredAndSortedFeatures = useMemo(() => {
     // First filter by date to only show features from April 23rd onwards
     let filtered = features.filter(f => new Date(f.createdAt) >= new Date('2025-04-23'));
-    
+
     // Then apply deleted/active filtering
     if (filterOption === 'deleted') {
       filtered = filtered.filter(f => f.deleted);
@@ -229,7 +229,7 @@ export default function Home() {
     }
 
     filtered.sort((a, b) => {
-    if (sortOption === "title") {
+      if (sortOption === "title") {
         return a.title.localeCompare(b.title);
       } else if (sortOption === "domain") {
         return (a.domain || "").localeCompare(b.domain || "");
@@ -318,14 +318,14 @@ export default function Home() {
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/features"] });
-      
+
       // Check if this was a regeneration using the pending ID
       const wasRegenerated = pendingRegenerationFeatureId === data.id;
       console.log('Edit success - wasRegenerated:', wasRegenerated, 'data.id:', data.id, 'pendingId:', pendingRegenerationFeatureId);
-      
+
       setEditingFeature(null);
       setIsContentEdited(false);
-      
+
       // Auto-show inline complexity analysis if content was regenerated
       if (wasRegenerated && data.id) {
         console.log('Auto-showing inline complexity analysis for feature:', data.id);
@@ -334,7 +334,7 @@ export default function Home() {
         setShowInlineComplexityAnalysis(true);
         // Clear currentFeature to avoid showing analysis twice
         setCurrentFeature(null);
-        
+
         // Scroll to the inline analysis section
         setTimeout(() => {
           const analysisElement = document.getElementById('inline-complexity-analysis');
@@ -343,10 +343,10 @@ export default function Home() {
           }
         }, 100);
       }
-      
+
       // Clear pending regeneration ID
       setPendingRegenerationFeatureId(null);
-      
+
       toast({
         title: "Success",
         description: wasRegenerated ? "Feature regenerated successfully" : "Feature updated successfully",
@@ -362,9 +362,9 @@ export default function Home() {
     },
   });
 
-      const archiveMutation = useMutation({
-        mutationFn: async (id: number) => {
-          const res = await apiRequest("POST", `/api/features/${id}/archive`);
+  const archiveMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("POST", `/api/features/${id}/archive`);
       if (!res.ok) {
         const error = await res.json();
         throw new Error(error.message);
@@ -460,15 +460,15 @@ export default function Home() {
 
   const onEdit = async (data: InsertFeature & { generatedContent: string }) => {
     if (!editingFeature || isRegenerating || editMutation.isPending) return;
-    
+
     // Check if scenario count has changed
     const scenarioCountChanged = data.scenarioCount !== editingFeature.scenarioCount;
-    
+
     if (scenarioCountChanged) {
       try {
         setIsRegenerating(true);
         setPendingRegenerationFeatureId(editingFeature.id);
-        
+
         // Regenerate feature content with new scenario count
         const res = await apiRequest("POST", `/api/features/${editingFeature.id}/regenerate`, {
           title: data.title,
@@ -476,14 +476,14 @@ export default function Home() {
           scenarioCount: data.scenarioCount,
           domain: data.domain || editingFeature.domain,
         });
-        
+
         if (res.ok) {
           const generatedData = await res.json();
           // Update with regenerated content
-          editMutation.mutate({ 
-            id: editingFeature.id, 
-            ...data, 
-            generatedContent: generatedData.generatedContent 
+          editMutation.mutate({
+            id: editingFeature.id,
+            ...data,
+            generatedContent: generatedData.generatedContent
           });
         } else {
           // If regeneration fails, proceed with current content
@@ -518,9 +518,9 @@ export default function Home() {
           transition={{ delay: 0.2 }}
         >
           <div className="flex items-center justify-center relative">
-            <img 
-              src={FeatureGenLogo} 
-              alt="Feature Generator AI" 
+            <img
+              src={FeatureGenLogo}
+              alt="Feature Generator AI"
               className="h-48 w-auto"
             />
             <TooltipProvider>
@@ -604,11 +604,14 @@ export default function Home() {
                       <FormLabel>Feature Story</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="Enter feature story"
+                          placeholder={`As a [role]\nI want to [action]\nSo that [outcome]`}
                           className="min-h-[100px]"
                           {...field}
                         />
                       </FormControl>
+                      <p className="text-xs text-muted-foreground">
+                        Use the <strong>As a / I want / So that</strong> format for best results
+                      </p>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -719,7 +722,7 @@ export default function Home() {
                 <div className="mt-6 border-t pt-6">
                   <ComplexityAnalysis featureId={currentFeature.id} autoAnalyze={false} feature={currentFeature} permissions={permissions} />
                 </div>
-                
+
                 {/* Feature Lifecycle Panel Hidden */}
               </CardContent>
             </Card>
@@ -747,7 +750,7 @@ export default function Home() {
                 {(() => {
                   const feature = features?.find(f => f.id === inlineComplexityFeatureId);
                   if (!feature || !inlineComplexityFeatureId) return null;
-                  
+
                   return (
                     <>
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -767,7 +770,7 @@ export default function Home() {
                         </pre>
                       </div>
                       <div className="mt-6 border-t pt-6">
-                        <ComplexityAnalysis 
+                        <ComplexityAnalysis
                           featureId={inlineComplexityFeatureId}
                           autoAnalyze={false}
                           feature={feature}
@@ -783,15 +786,15 @@ export default function Home() {
         )}
 
         <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>
-                  {filterOption === 'deleted' ? 'Archived Features' : 'Generated Features'}
-                </CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {filteredAndSortedFeatures.length} feature{filteredAndSortedFeatures.length !== 1 ? 's' : ''} found
-                </p>
-              </div>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>
+                {filterOption === 'deleted' ? 'Archived Features' : 'Generated Features'}
+              </CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                {filteredAndSortedFeatures.length} feature{filteredAndSortedFeatures.length !== 1 ? 's' : ''} found
+              </p>
+            </div>
             <div className="flex items-center gap-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -845,17 +848,16 @@ export default function Home() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -20 }}
-                    className={`relative border rounded-lg p-4 cursor-pointer transition-colors ${
-                      currentFeature?.id === feature.id || inlineComplexityFeatureId === feature.id
-                        ? "border-primary bg-primary/5"
-                        : "hover:border-primary/50"
-                    }`}
+                    className={`relative border rounded-lg p-4 cursor-pointer transition-colors ${currentFeature?.id === feature.id || inlineComplexityFeatureId === feature.id
+                      ? "border-primary bg-primary/5"
+                      : "hover:border-primary/50"
+                      }`}
                     onClick={() => {
                       setCurrentFeature(feature);
                       // Clear inline analysis when clicking on a feature card
                       setShowInlineComplexityAnalysis(false);
                       setInlineComplexityFeatureId(null);
-                      
+
                       // Scroll to show the selected feature
                       setTimeout(() => {
                         const selectedFeatureElement = document.querySelector('[data-selected-feature="true"]');
@@ -984,7 +986,7 @@ export default function Home() {
               )}
             </div>
           </CardContent>
-          </Card>
+        </Card>
 
         <Dialog open={editingFeature !== null} onOpenChange={(open) => !open && setEditingFeature(null)}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -1020,18 +1022,21 @@ export default function Home() {
                 />
 
                 <FormField
-                  control={editForm.control}
+                  control={form.control}
                   name="story"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Feature Story</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="Enter feature story"
+                          placeholder={`As a [role]\nI want to [action]\nSo that [outcome]`}
                           className="min-h-[100px]"
                           {...field}
                         />
                       </FormControl>
+                      <p className="text-xs text-muted-foreground">
+                        Use the <strong>As a / I want / So that</strong> format for best results
+                      </p>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -1083,7 +1088,7 @@ export default function Home() {
                           onChange={(e) => {
                             field.onChange(e.target.value);
                             setIsContentEdited(true);
-                            
+
                             // Auto-update scenario count based on content
                             const actualScenarioCount = countScenariosInContent(e.target.value);
                             if (actualScenarioCount > 0) {
@@ -1155,7 +1160,7 @@ export default function Home() {
             <CucumberGuide />
           </DialogContent>
         </Dialog>
-        
+
 
       </motion.div>
     </div>
@@ -1178,39 +1183,39 @@ function updateFeatureContent(content: string, newTitle: string): string {
 function adjustScenarioCount(content: string, targetCount: number): string {
   const lines = content.split('\n');
   const scenarioIndices: number[] = [];
-  
+
   // Find all scenario lines
   lines.forEach((line, index) => {
     if (line.trim().match(/^(Scenario:|Scenario Outline:)/)) {
       scenarioIndices.push(index);
     }
   });
-  
+
   const currentCount = scenarioIndices.length;
-  
+
   if (currentCount === targetCount) {
     return content; // No change needed
   }
-  
+
   if (currentCount > targetCount) {
     // Remove excess scenarios - keep first targetCount scenarios
     const keepScenarios = scenarioIndices.slice(0, targetCount);
     const lastKeepIndex = keepScenarios[keepScenarios.length - 1];
-    
+
     // Find the end of the last scenario to keep
     let endIndex = lines.length;
     if (targetCount < scenarioIndices.length) {
       endIndex = scenarioIndices[targetCount];
     }
-    
+
     // Keep lines up to the end of the last scenario we want to keep
     const keptLines: string[] = [];
     let inScenarioToKeep = false;
-    
+
     for (let i = 0; i <= lastKeepIndex; i++) {
       keptLines.push(lines[i]);
     }
-    
+
     // Add any remaining lines that belong to the last kept scenario
     for (let i = lastKeepIndex + 1; i < endIndex; i++) {
       const line = lines[i];
@@ -1219,33 +1224,33 @@ function adjustScenarioCount(content: string, targetCount: number): string {
       }
       keptLines.push(line);
     }
-    
+
     return keptLines.join('\n');
   } else {
     // Need to add more scenarios - duplicate the last scenario
     if (scenarioIndices.length === 0) {
       return content; // No scenarios to duplicate
     }
-    
+
     const lastScenarioIndex = scenarioIndices[scenarioIndices.length - 1];
     const scenarioLines: string[] = [];
-    
+
     // Extract the last scenario
     for (let i = lastScenarioIndex; i < lines.length; i++) {
       const line = lines[i];
       scenarioLines.push(line);
-      
+
       // Stop at next scenario or end of file
       if (i > lastScenarioIndex && line.trim().match(/^(Scenario:|Scenario Outline:)/)) {
         scenarioLines.pop(); // Remove the next scenario line
         break;
       }
     }
-    
+
     // Create new scenarios by duplicating and modifying the last one
     const additionalScenarios: string[] = [];
     const scenariosToAdd = targetCount - currentCount;
-    
+
     // Common scenario variations to make them more meaningful
     const scenarioVariations = [
       'with error handling',
@@ -1259,7 +1264,7 @@ function adjustScenarioCount(content: string, targetCount: number): string {
       'in secure mode',
       'with monitoring enabled'
     ];
-    
+
     for (let i = 0; i < scenariosToAdd; i++) {
       const variation = scenarioVariations[i % scenarioVariations.length];
       const duplicatedScenario = scenarioLines.map((line, lineIndex) => {
@@ -1271,13 +1276,13 @@ function adjustScenarioCount(content: string, targetCount: number): string {
         }
         return line;
       });
-      
+
       additionalScenarios.push(...duplicatedScenario);
       if (i < scenariosToAdd - 1) {
         additionalScenarios.push(''); // Add blank line between scenarios
       }
     }
-    
+
     return content + '\n\n' + additionalScenarios.join('\n');
   }
 }
@@ -1339,16 +1344,16 @@ function ComplexityAnalysis({ featureId, autoAnalyze = false, feature, permissio
       return {};
     }
   });
-  
+
   // Use passed feature or fetch features if not provided
   const { data: features } = useQuery<Feature[]>({
     queryKey: ['/api/features'],
     enabled: !feature
   });
-  
+
   const currentFeature = feature || features?.find((f) => f.id === featureId);
   const storedAnalysis = currentFeature?.analysisJson ? JSON.parse(currentFeature.analysisJson) : null;
-  
+
   const { data: complexity, isLoading, refetch } = useQuery({
     queryKey: ['/api/features/complexity', featureId, refreshKey],
     queryFn: async () => {
@@ -1371,7 +1376,7 @@ function ComplexityAnalysis({ featureId, autoAnalyze = false, feature, permissio
     enabled: false,
     retry: false
   });
-  
+
   // Use stored analysis if available, otherwise use fresh analysis
   const analysisData = complexity || storedAnalysis;
 
@@ -1390,7 +1395,7 @@ function ComplexityAnalysis({ featureId, autoAnalyze = false, feature, permissio
             <p className="text-sm text-muted-foreground text-center">
               Click below to analyze the complexity of this feature's scenarios
             </p>
-            <Button 
+            <Button
               onClick={() => {
                 if (analysisManager.canStart(featureId) && !isLoading) {
                   if (analysisManager.start(featureId)) {
@@ -1468,11 +1473,11 @@ function ComplexityAnalysis({ featureId, autoAnalyze = false, feature, permissio
           </Button>
         </div>
       </div>
-      
+
       <div className="mb-4">
         <TeamContextSummary teamContext={teamContext} />
       </div>
-      
+
       <div className="p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md mb-4">
         <p className="text-xs text-blue-800 dark:text-blue-400 flex items-start gap-2">
           <HelpCircle className="h-4 w-4 shrink-0 mt-0.5" />
@@ -1480,12 +1485,12 @@ function ComplexityAnalysis({ featureId, autoAnalyze = false, feature, permissio
         </p>
       </div>
 
-      <ComplexityInsights 
+      <ComplexityInsights
         overallComplexity={analysisData.overallComplexity}
         scenarios={analysisData.scenarios}
         teamContext={teamContext}
       />
-      
+
       {/* Detailed Scenario Breakdown - Collapsible */}
       <div className="space-y-4">
         <details className="group">

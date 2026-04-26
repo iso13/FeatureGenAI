@@ -6,7 +6,6 @@
  * Change Date: January 1, 2029 (license converts to MIT)
  * Contact: davidtran@featuregen.ai
  */
-
 import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from "@shared/schema";
@@ -17,12 +16,12 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-const pool = new Pool({ 
+const isLocal = (process.env.DATABASE_URL ?? "").includes("localhost") ||
+                (process.env.DATABASE_URL ?? "").includes("127.0.0.1");
+
+const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: {
-    require: true,
-    rejectUnauthorized: false
-  }
+  ssl: isLocal ? false : { rejectUnauthorized: false }
 });
 
 export const db = drizzle(pool, { schema });

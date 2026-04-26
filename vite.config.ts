@@ -6,7 +6,6 @@
  * Change Date: January 1, 2029 (license converts to MIT)
  * Contact: davidtran@featuregen.ai
  */
-
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import themePlugin from "@replit/vite-plugin-shadcn-theme-json";

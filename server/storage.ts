@@ -11,6 +11,7 @@ import {
   analytics,
   users,
   epics,
+  projects,
   passwordResetTokens,
   roleApprovalRequests,
   type Feature,
@@ -20,6 +21,8 @@ import {
   type User,
   type Epic,
   type InsertEpic,
+  type Project,
+  type InsertProject,
 } from "@shared/schema";
 import { eq, ilike, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
@@ -38,8 +41,7 @@ function sslFor(u: string) {
     return /localhost|127\.0\.0\.1/.test(u) ? false : { rejectUnauthorized: false };
   }
 }
-
-const client = postgres(url, { ssl: sslFor(url) });
+const client = postgres(url, { ssl: false });
 const db = drizzle(client);
 
 export interface IStorage {
@@ -51,6 +53,11 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   updateUserRole(id: number, role: string): Promise<User>;
   getAllUsers(): Promise<User[]>;
+  createProject(project: InsertProject): Promise<Project>;
+  getProject(id: number): Promise<Project | undefined>;
+  getAllProjects(): Promise<Project[]>;
+  updateProject(id: number, project: Partial<InsertProject>): Promise<Project>;
+  deleteProject(id: number): Promise<void>;
   createEpic(epic: InsertEpic): Promise<Epic>;
   getEpic(id: number): Promise<Epic | undefined>;
   getAllEpics(projectId?: number): Promise<Epic[]>;
@@ -186,6 +193,26 @@ export class PostgresStorage implements IStorage {
       }).where(eq(users.id, request.userId));
     }
     return request;
+  }
+
+  // Projects
+  async createProject(insertProject: InsertProject): Promise<Project> {
+    const [project] = await db.insert(projects).values(insertProject).returning();
+    return project;
+  }
+  async getProject(id: number): Promise<Project | undefined> {
+    const [project] = await db.select().from(projects).where(eq(projects.id, id));
+    return project;
+  }
+  async getAllProjects(): Promise<Project[]> {
+    return await db.select().from(projects).orderBy(desc(projects.createdAt));
+  }
+  async updateProject(id: number, updateData: Partial<InsertProject>): Promise<Project> {
+    const [project] = await db.update(projects).set(updateData).where(eq(projects.id, id)).returning();
+    return project;
+  }
+  async deleteProject(id: number): Promise<void> {
+    await db.delete(projects).where(eq(projects.id, id));
   }
 
   // Epics

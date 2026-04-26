@@ -35,7 +35,6 @@ function analysisTitlesFromJson(analysisJson?: string | null): string[] {
     const parsed = JSON.parse(analysisJson);
     const arr = parsed?.scenarios;
     if (!Array.isArray(arr)) return [];
-    // Support either `title` or `name` keys coming from older/newer analyzers
     return arr.map((s: any) => {
       if (typeof s?.title === "string") return s.title;
       if (typeof s?.name === "string") return s.name;
@@ -46,12 +45,6 @@ function analysisTitlesFromJson(analysisJson?: string | null): string[] {
   }
 }
 
-/**
- * Normalize the analysis so:
- * - length matches the larger of (headings found in text) vs (desiredLenHint)
- * - scenario titles align to headings
- * - keep both `title` and `name` for UI compatibility
- */
 function normalizeAnalysisToText(
   analysis: any,
   featureText: string,
@@ -89,7 +82,6 @@ function normalizeAnalysisToText(
   return { ...analysis, scenarios };
 }
 
-/** Decide if we must reanalyze: count or title drift, or edited content */
 function needsReanalysis(args: {
   featureText: string | null | undefined;
   existingAnalysisJson: string | null | undefined;
@@ -125,7 +117,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data.domain
       );
 
-      // Analyze immediately (best effort)
       let analysisJson: string | undefined = undefined;
       try {
         const raw = await analyzeFeatureComplexity(content);
@@ -169,23 +160,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Force re-analysis of an existing feature (left open for debugging; add requireAuth if desired)
   app.post("/api/features/:id/reanalyze", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const feature = await storage.getFeature(id);
       if (!feature || !feature.generatedContent) {
-        return res
-          .status(404)
-          .json({ message: "Feature not found or has no content" });
+        return res.status(404).json({ message: "Feature not found or has no content" });
       }
       const desiredLenHint = (feature as any).scenarioCount;
       const raw = await analyzeFeatureComplexity(feature.generatedContent);
-      const norm = normalizeAnalysisToText(
-        raw,
-        feature.generatedContent,
-        desiredLenHint
-      );
+      const norm = normalizeAnalysisToText(raw, feature.generatedContent, desiredLenHint);
       await storage.updateFeature(id, { analysisJson: JSON.stringify(norm) });
       res.json(norm);
     } catch (err: any) {
@@ -193,23 +177,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Recompute complexity for current content (compat)
   app.post("/api/features/:id/complexity", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const feature = await storage.getFeature(id);
       if (!feature || !feature.generatedContent) {
-        return res
-          .status(404)
-          .json({ message: "Feature not found or has no content" });
+        return res.status(404).json({ message: "Feature not found or has no content" });
       }
       const desiredLenHint = (feature as any).scenarioCount;
       const raw = await analyzeFeatureComplexity(feature.generatedContent);
-      const norm = normalizeAnalysisToText(
-        raw,
-        feature.generatedContent,
-        desiredLenHint
-      );
+      const norm = normalizeAnalysisToText(raw, feature.generatedContent, desiredLenHint);
       await storage.updateFeature(id, { analysisJson: JSON.stringify(norm) });
       res.json(norm);
     } catch (err: any) {
@@ -217,7 +194,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Title suggestions
   app.post("/api/features/suggest-titles", async (req, res) => {
     try {
       const { story } = req.body;
@@ -228,7 +204,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Archive / restore / soft delete
   app.post("/api/features/:id/archive", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -249,7 +224,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Alias delete -> archive
   app.post("/api/features/:id/delete", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -260,7 +234,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Regenerate content (no DB write)
   app.post("/api/features/:id/regenerate", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -279,19 +252,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Save edits and re-analyze when needed (size by hint if provided)
   app.patch("/api/features/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      // Only persist provided keys (avoid writing undefined)
       const updateData = Object.fromEntries(
         Object.entries(req.body as Record<string, any>).filter(([, v]) => v !== undefined)
       );
 
-      // 1) Save edits
       let updated = await storage.updateFeature(id, updateData);
 
-      // 2) Evaluate if we need re-analysis
       const contentEdited = typeof updateData.generatedContent === "string";
       const scenarioCountHintChanged = typeof updateData.scenarioCount === "number";
 
@@ -319,7 +288,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           updated = (await storage.getFeature(id)) ?? updated;
         } catch (e) {
           console.warn("Re-analysis after update failed:", e);
-          // do not fail the patch if analysis fails
         }
       }
 
@@ -329,7 +297,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Single feature (needed so the UI/curl can fetch JSON, not the SPA shell)
   app.get("/api/features/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -341,7 +308,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // List & export
   app.get("/api/features", async (req, res) => {
     try {
       const includeDeleted = req.query.includeDeleted === "true";
@@ -437,6 +403,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updatedUser);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Projects
+  app.post("/api/projects", async (req, res) => {
+    try {
+      const { name, description } = req.body;
+      const project = await storage.createProject({
+  name,
+  description,
+  status: "active",
+  userId: req.session?.user?.id,
+});
+      res.json({ success: true, project });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/projects", async (_req, res) => {
+    try {
+      const allProjects = await storage.getAllProjects();
+      res.json({ success: true, count: allProjects.length, projects: allProjects });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/projects/:id", async (req, res) => {
+    try {
+      const project = await storage.getProject(parseInt(req.params.id));
+      if (!project) return res.status(404).json({ success: false, error: "Project not found" });
+      res.json({ success: true, project });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.patch("/api/projects/:id", requireAuth, async (req, res) => {
+    try {
+      const project = await storage.updateProject(parseInt(req.params.id), req.body);
+      res.json({ success: true, project });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.delete("/api/projects/:id", requireAuth, async (req, res) => {
+    try {
+      await storage.deleteProject(parseInt(req.params.id));
+      res.json({ success: true, message: "Project deleted successfully" });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
     }
   });
 

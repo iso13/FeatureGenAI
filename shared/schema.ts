@@ -48,8 +48,8 @@ export const users = pgTable("users", {
   passwordHash: text("password_hash").notNull(),
   isAdmin: boolean("is_admin").default(false).notNull(),
   role: text("role").default("developer").notNull(),
-  requestedRole: text("requested_role"), // For approval workflow
-  roleApproved: boolean("role_approved").default(true).notNull(), // False for pending approvals
+  requestedRole: text("requested_role"),
+  roleApproved: boolean("role_approved").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -73,6 +73,25 @@ export const LIFECYCLE_STAGES = [
 
 export type LifecycleStage = typeof LIFECYCLE_STAGES[number];
 
+export const projects = pgTable("projects", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  status: text("status").default("active").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  userId: integer("user_id").references(() => users.id),
+});
+
+export const epics = pgTable("epics", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  status: text("status").default("active").notNull(),
+  projectId: integer("project_id").references(() => projects.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  userId: integer("user_id").references(() => users.id),
+});
+
 export const features = pgTable("features", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
@@ -91,16 +110,6 @@ export const features = pgTable("features", {
   analysisJson: text("analysis_json"),
 });
 
-export const epics = pgTable("epics", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  description: text("description"),
-  status: text("status").default("active").notNull(), // active, on-hold, completed, cancelled
-  projectId: integer("project_id").references(() => projects.id),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  userId: integer("user_id").references(() => users.id),
-});
-
 export const analytics = pgTable("analytics", {
   id: serial("id").primaryKey(),
   eventType: text("event_type").notNull(),
@@ -113,12 +122,11 @@ export const analytics = pgTable("analytics", {
   recommendations: json("recommendations"),
 });
 
-// Role approval requests table
 export const roleApprovalRequests = pgTable("role_approval_requests", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
   requestedRole: text("requested_role").notNull(),
-  status: text("status").default("pending").notNull(), // pending, approved, rejected
+  status: text("status").default("pending").notNull(),
   requestedAt: timestamp("requested_at").defaultNow().notNull(),
   reviewedAt: timestamp("reviewed_at"),
   reviewedBy: integer("reviewed_by").references(() => users.id),
@@ -130,7 +138,6 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
-// Self-registration safe roles (auto-approved)
 export const AUTO_APPROVED_ROLES = [
   'developer',
   'tester',
@@ -138,12 +145,10 @@ export const AUTO_APPROVED_ROLES = [
   'stakeholder'
 ] as const;
 
-// Roles that require admin approval
 export const APPROVAL_REQUIRED_ROLES = [
   'product_manager'
 ] as const;
 
-// All roles available for self-registration
 export const SELF_REGISTRATION_ROLES = [
   ...AUTO_APPROVED_ROLES,
   ...APPROVAL_REQUIRED_ROLES
@@ -213,15 +218,29 @@ export const insertEpicSchema = createInsertSchema(epics)
     userId: z.number().optional(),
   });
 
+export const insertProjectSchema = createInsertSchema(projects)
+  .pick({
+    name: true,
+    description: true,
+    status: true,
+    userId: true,
+  })
+  .extend({
+    name: z.string().min(1, "Project name is required"),
+    description: z.string().optional(),
+    status: z.enum(["active", "on-hold", "completed", "cancelled"]).default("active"),
+    userId: z.number().optional(),
+  });
+
 export const insertAnalyticsSchema = createInsertSchema(analytics)
-.pick({
-  eventType: true,
-  title: true,
-  scenarioCount: true,
-  successful: true,
-  errorMessage: true,
-  recommendations: true,
-});
+  .pick({
+    eventType: true,
+    title: true,
+    scenarioCount: true,
+    successful: true,
+    errorMessage: true,
+    recommendations: true,
+  });
 
 export const insertUserSchema = createInsertSchema(users)
   .pick({
@@ -245,13 +264,6 @@ export const insertUserSchema = createInsertSchema(users)
     roleApproved: z.boolean().default(true),
   });
 
-export type User = typeof users.$inferSelect;
-export type InsertUser = z.infer<typeof insertUserSchema>;
-
-export type Epic = typeof epics.$inferSelect;
-export type InsertEpic = z.infer<typeof insertEpicSchema>;
-
-// Role-based permissions configuration
 export const ROLE_PERMISSIONS = {
   admin: {
     canCreateUsers: true,
@@ -320,6 +332,16 @@ export const ROLE_PERMISSIONS = {
     canViewAllFeatures: true,
   },
 } as const;
+
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+
+export type Project = typeof projects.$inferSelect;
+export type InsertProject = z.infer<typeof insertProjectSchema>;
+
+export type Epic = typeof epics.$inferSelect;
+export type InsertEpic = z.infer<typeof insertEpicSchema>;
+
 export type UpdateFeature = z.infer<typeof updateFeatureSchema>;
 export type Feature = typeof features.$inferSelect;
 export type InsertFeature = z.infer<typeof insertFeatureSchema>;
