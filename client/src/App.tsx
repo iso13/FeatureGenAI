@@ -44,6 +44,7 @@ function Navigation() {
           <>
             <a href="/users" className="mr-4 hover:text-primary">Users</a>
             <a href="/role-approvals" className="mr-4 hover:text-primary">Role Approvals</a>
+            <a href="/domain-knowledge" className="mr-4 hover:text-primary">Domain Knowledge</a>
           </>
         )}
         <a href="/info" className="mr-4 hover:text-primary">Info</a>
@@ -96,6 +97,14 @@ function AuthenticatedRoutes() {
         );
       }} />
       <Route path="/analytics" component={Analytics} />
+      <Route path="/domain-knowledge" component={() => {
+        const DomainKnowledge = lazy(() => import("@/pages/domain-knowledge"));
+        return (
+          <Suspense fallback={<div>Loading...</div>}>
+            <DomainKnowledge />
+          </Suspense>
+        );
+      }} />
       <Route path="/users" component={() => {
         const Users = lazy(() => import("./pages/users"));
         return (

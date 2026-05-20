@@ -1,4 +1,4 @@
-**
+/**
  * FeatureGen AI
  * Copyright (c) 2024–2025 David Tran
  * Licensed under the Business Source License 1.1
@@ -950,3 +950,4 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   return createServer(app);
+}
