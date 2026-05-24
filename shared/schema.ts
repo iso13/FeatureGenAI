@@ -251,12 +251,14 @@ export const insertFeatureSchema = createInsertSchema(features)
     story: true,
     scenarioCount: true,
     epicId: true,
+    domain: true,
   })
   .extend({
     title: z.string().min(1, "Title is required"),
     story: z.string().min(10, "Story must be at least 10 characters"),
     scenarioCount: z.number().min(1).max(10),
     epicId: z.number().optional(),
+    domain: z.enum(DOMAIN_VALUES).optional(),
     generatedContent: z.string().optional(),
   });
 
